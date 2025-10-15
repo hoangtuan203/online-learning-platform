@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: content-service
+
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/content_db
+
+    graphql:
+      graphiql:
+        enabled: true
+      path: /graphql
+
+server:
+  port: 8084
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+#reactive webflux streaming
+reactor:
+  netty:
+    threads: 200
+
+logging:
+  level:
+    com.learning.content_service: DEBUG
+    org.springframework.graphql: DEBUG

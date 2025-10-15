@@ -1,0 +1,31 @@
+type Content {
+    id: ID!
+    title: String!
+    description: String
+    type: String!
+    url: String!
+    duration: Int
+    courseId: ID!
+    createdAt: String!
+}
+
+input CreateContentInput {
+    title: String!
+    description: String
+    type: String!
+    url: String!
+    duration: Int
+    courseId: ID!
+}
+
+type Query {
+    getContent(id: ID!): Content
+    getContentsByCourse(courseId: ID!): [Content!]!
+    findAllContents: [Content!]!
+}
+
+type Mutation {
+    addContent(input: CreateContentInput!): Content!
+    updateContent(id: ID!, input: CreateContentInput!): Content!
+    deleteContent(id: ID!): Boolean!
+}

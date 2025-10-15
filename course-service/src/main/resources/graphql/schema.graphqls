@@ -1,0 +1,39 @@
+type User {
+    id: ID!
+    username: String
+    fullName: String
+    email: String  # Optional, thêm nếu cần cho display
+}
+type Course {
+    id: ID!
+    title: String!
+    description: String
+    instructor: User!  # Nested với User type từ shared schema
+    price: Float!
+    thumbnailUrl: String
+    createdAt: String!
+}
+
+type CoursePage {
+    content: [Course!]!
+    totalElements: Int!
+    totalPages: Int!
+    currentPage: Int!
+}
+
+input CreateCourseInput {
+    title: String!
+    description: String
+    instructorId: ID!
+    price: Float!
+    thumbnailUrl: String
+}
+type Query {
+    findAllCourses(page: Int = 0, size: Int = 10): CoursePage!
+    searchCourses(title: String!): [Course!]!
+    getCourseById(id: ID!): Course
+    instructorCourses(instructorId: ID!): [Course!]!
+}
+type Mutation {
+    addCourse(input: CreateCourseInput!): Course!
+}

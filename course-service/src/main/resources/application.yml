@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: course-service
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/learning_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+    database-platform: org.hibernate.dialect.MySQLDialect
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+server:
+  port: 8082
+
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+
+cloudinary:
+  cloud_name: dm1alq68q
+  api_key: 392714169722963
+  api_secret: 78opY4-nD40-VZbYTqDsU_tDPMc
+
+logging:
+  level:
+    com.learning.course_service.graphql: DEBUG  # Log resolver
+    org.springframework.graphql: DEBUG         # Log GraphQL execution
+    org.hibernate.SQL: DEBUG                   # Log SQL queries
+    org.springframework.orm.jpa: DEBUG         # Log JPA/DB errors
