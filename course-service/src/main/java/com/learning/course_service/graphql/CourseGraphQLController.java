@@ -37,6 +37,4 @@ public class CourseGraphQLController {
     public List<Course> instructorCourses(@Argument Long instructorId) {
         return courseService.findCoursesByInstructor(instructorId);
     }
-
-
 }

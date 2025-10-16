@@ -1,5 +1,6 @@
 package com.learning.user_service.dto;
 
+import com.learning.user_service.entity.User;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -11,6 +12,8 @@ import lombok.experimental.FieldDefaults;
 public class AddUserRequest {
     String username;
     String password;
+    String name;
     String email;
-    String role;
+    User.Role role;
+    String avatarUrl;
 }

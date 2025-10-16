@@ -1,6 +1,6 @@
 export interface Instructor {
   id: number;
-  username: string;
+  fullName: string;
 }
 
 export interface Course {

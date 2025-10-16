@@ -13,7 +13,7 @@ const FIND_ALL_COURSES_QUERY = `
         thumbnailUrl
         instructor {
           id
-          username
+          fullName
         }
         createdAt
       }
@@ -24,7 +24,6 @@ const FIND_ALL_COURSES_QUERY = `
 `;
 
 export class CourseService {
-  // ✅ Lấy danh sách khóa học (phân trang)
   public async getAllCourses(page = 0, size = 10): Promise<CoursePage> {
     try {
       const response = await httpRequest.post("/courses/graphql", {

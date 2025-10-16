@@ -4,12 +4,10 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/content_db
-
-    graphql:
-      graphiql:
-        enabled: true
-      path: /graphql
+      authentication-database: admin
+      database: content_db
+      host: localhost
+      port: 27017
 
 server:
   port: 8084
@@ -25,6 +23,11 @@ eureka:
 reactor:
   netty:
     threads: 200
+
+cloudinary:
+  cloud_name: dm1alq68q
+  api_key: 392714169722963
+  api_secret: 78opY4-nD40-VZbYTqDsU_tDPMc
 
 logging:
   level:

@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatusCode;
 
 @Getter
 public enum ErrorCode {
-    //HttpStatus.FORBIDDEN là lỗi 403 không có quyền truy cập
     UNAUTHENTICATED(1002, "You do no have permission", HttpStatus.FORBIDDEN),
     EMAIL_NOT_EXISTED(1003, "Email not exited", HttpStatus.NOT_FOUND),
     USER_EXISTS(1004,"User exited", HttpStatus.BAD_REQUEST),

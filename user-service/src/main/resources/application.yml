@@ -19,9 +19,17 @@ spring:
       enabled: true
       max-file-size: 5MB
       max-request-size: 10MB
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+  cache:
+    type: redis
+    redis:
+      time-to-live: 30000
+
 server:
   port: 8081
-
 
 eureka:
   client:
@@ -29,6 +37,11 @@ eureka:
     fetch-registry: true
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+cloudinary:
+  cloud_name: dm1alq68q
+  api_key: 392714169722963
+  api_secret: 78opY4-nD40-VZbYTqDsU_tDPMc
 
 logging:
   level:
@@ -38,3 +51,5 @@ logging:
 
 jwt:
   signerKey: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"
+  valid-duration: 3600 # in second
+  refreshable-duration: 36000 # in seconds

@@ -27,6 +27,7 @@ const FIND_ALL_USERS_QUERY = `
         name
         email
         role
+        avatarUrl
         createdAt
         updatedAt
       }
@@ -36,6 +37,27 @@ const FIND_ALL_USERS_QUERY = `
     }
   }
 `;
+
+
+const SEARCH_USERS_QUERY = `
+  query SearchUsers($name: String, $role: Role, $page: Int!, $size: Int!) {
+    searchUsers(name: $name, role: $role, page: $page, size: $size) {
+      user {
+        id
+        username
+        name
+        email
+        role
+        createdAt
+        updatedAt
+      }
+      totalElements
+      totalPages
+      currentPage
+    }
+  }
+`;
+
 
 
 export class UserService {
@@ -108,6 +130,38 @@ export class UserService {
             throw error;
         }
     }
-    //delete user 
-    
+
+    public async searchUsers(
+        name?: string,
+        role?: string,
+        page = 0,
+        size = 5
+    ): Promise<UserPage> {
+        try {
+            const response = await httpRequest.post("/users/graphql", {
+                query: SEARCH_USERS_QUERY,
+                variables: { name, role, page, size },
+            });
+
+            const { data, errors } = response.data;
+
+            if (errors && errors.length > 0) {
+                throw new Error(errors[0].message || "GraphQL query error");
+            }
+
+            if (!data?.searchUsers) {
+                throw new Error("Không nhận được dữ liệu tìm kiếm từ server");
+            }
+
+            return data.searchUsers;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                throw new Error(
+                    `Lỗi kết nối server: ${error.response?.data?.message || error.message}`
+                );
+            }
+            throw error;
+        }
+    }
+
 }

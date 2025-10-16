@@ -1,6 +1,5 @@
 package com.learning.content_service.dto;
 
-import com.learning.content_service.entity.ContentType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,10 +8,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ContentDTO {
+public class ContentResponse {
+
     private String id;
 
     private String title;
@@ -27,6 +27,7 @@ public class ContentDTO {
 
     private String courseId;
 
+    private String thumbnail;
 
     private String level;
 

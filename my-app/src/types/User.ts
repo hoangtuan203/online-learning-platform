@@ -9,6 +9,9 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  avatarUrl: string;
+  createdAt: string;
+  
 }
 
 export interface AuthResponse {

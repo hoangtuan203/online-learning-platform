@@ -1,9 +1,9 @@
-package com.learning.course_service.controller;
+package com.learning.user_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.learning.course_service.dto.CreateCourseRequest;
-import com.learning.course_service.entity.Course;
-import com.learning.course_service.service.CourseService;
+import com.learning.user_service.dto.AddUserRequest;
+import com.learning.user_service.entity.User;
+import com.learning.user_service.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,21 +14,20 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/courses")
+@RequestMapping("/api/users")
 @RequiredArgsConstructor
-public class CourseController {
-
-    private final CourseService courseService;
+public class UserController {
     private final ObjectMapper objectMapper;
+    private final UserService userService;
 
     @PostMapping(value = "/create", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
     public ResponseEntity<?> createCourse(
             @RequestPart("data") String data,
-            @RequestPart(value = "thumbnail", required = false) MultipartFile thumbnail
+            @RequestPart(value = "avatar", required = false) MultipartFile avatar
     ) {
         try {
-            CreateCourseRequest request = objectMapper.readValue(data, CreateCourseRequest.class);
-            Course created = courseService.createCourse(request, thumbnail);
+            AddUserRequest request = objectMapper.readValue(data, AddUserRequest.class);
+            User created = userService.addUser(request, avatar);
             return ResponseEntity.ok(created);
 
         } catch (Exception e) {

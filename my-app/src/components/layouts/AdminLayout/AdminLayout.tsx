@@ -19,7 +19,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       'list-users': 'List Users',
       'comments': 'Comments',
       'list-courses': 'List Courses',
-      'add-course': 'Add Course',
+      'add-content-course': 'Add Course',
       'update-course': 'Update Course',
       'analytics': 'Analytics',
       'settings': 'Settings',

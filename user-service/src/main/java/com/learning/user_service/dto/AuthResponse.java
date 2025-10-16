@@ -13,7 +13,6 @@ import java.util.Date;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthResponse {
     private String accessToken;
-    private String refreshToken;
     private User user;
     private boolean authenticated = true;
     private String expiryTime;

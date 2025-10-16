@@ -27,16 +27,6 @@ public class UserGraphQLController {
         return userService.findAllUsers(page != null ? page : 0, size != null ? size : 5);
     }
 
-    @MutationMapping
-    public User addUser(
-            @Argument String username,
-            @Argument String name,
-            @Argument String email,
-            @Argument String password,
-            @Argument User.Role role
-            ) {
-        return userService.addUser(username, name, email, password, role);
-    }
 
     @MutationMapping
     public AuthResponse login(@Argument("input") LoginRequest request) {
@@ -58,6 +48,20 @@ public class UserGraphQLController {
     @QueryMapping
     public User getUserById(@Argument Long id) {
         return userService.getUserById(id);
+    }
+
+    @QueryMapping
+    public UserPage searchUsers(
+            @Argument String name,
+            @Argument User.Role role,
+            @Argument Integer page,
+            @Argument Integer size) {
+        if ((name == null || name.trim().isEmpty()) && role == null) {
+            throw new IllegalArgumentException("At least one of name or role is required");
+        }
+        int effectivePage = (page != null) ? page : 0;
+        int effectiveSize = (size != null) ? size : 5;
+        return userService.searchUsers(name, role, effectivePage, effectiveSize);
     }
 
 }

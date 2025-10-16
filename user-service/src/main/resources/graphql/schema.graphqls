@@ -4,6 +4,7 @@ type User {
     name: String!
     email: String!
     role: Role!
+    avatarUrl: String
     createdAt: String!
     updatedAt: String!
 }
@@ -12,6 +13,15 @@ type UserPage {
     totalElements: Int!
     totalPages: Int!
     currentPage: Int!
+}
+
+input AddUserRequest{
+    username: String!
+    password: String!
+    name: String!
+    email: String!
+    role: Role!
+    avatarUrl: String!
 }
 
 enum Role {
@@ -27,15 +37,15 @@ input LoginInput {
 
 type AuthResponse {
     accessToken: String!
-    refreshToken: String!
     user: User!  # Bao gồm user info sau login
 }
 type Query {
     findAllUsers(page: Int = 0, size: Int = 10): UserPage!
     getUserById(id: ID!): User
+    searchUsers(name: String, role: Role, page: Int = 0, size: Int = 5): UserPage!
 }
 type Mutation {
-    addUser(username: String!,name: String!, email: String!, password: String!, role: Role!): User!,
+    addUser(input: AddUserRequest!): User!,
     login(input: LoginInput!): AuthResponse!,
     forgotPassword(username: String!): User!
 }

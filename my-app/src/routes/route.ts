@@ -1,5 +1,6 @@
 import AdminLayout from "../components/layouts/AdminLayout/AdminLayout";
 import DefaultLayout from "../components/layouts/DefauLayout/DefaultLayout";
+import AddContentPage from "../pages/admin/AddContentPage";
 import CoursePage from "../pages/admin/CoursePage";
 import Dashboard from "../pages/admin/Dashboard";
 import UserPage from "../pages/admin/UserPage";
@@ -14,6 +15,7 @@ const publicRoutes = [
   { path: "/register", component: Register, layout: null},
   { path: "/list-users", component: UserPage, layout: AdminLayout},
   { path: "/list-courses", component: CoursePage, layout: AdminLayout},
+  { path: "/add-content-course", component: AddContentPage, layout: AdminLayout},
 ];
 
 export default publicRoutes;

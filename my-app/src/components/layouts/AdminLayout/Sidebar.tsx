@@ -44,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       label: "Course",
       children: [
         { id: "list-courses", icon: <ClipboardList className="w-4 h-4" />, label: "List Course" },
-        { id: "add-course", icon: <Plus className="w-4 h-4" />, label: "Add Course" },
+        { id: "add-content-course", icon: <Plus className="w-4 h-4" />, label: "Add Content" },
         { id: "update-course", icon: <Edit className="w-4 h-4" />, label: "Update Course" },
       ],
     },
@@ -65,8 +65,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       (item.children && item.children.some((child) => currentPath === child.id));
 
     const baseClass = `w-full flex items-center ${
-      isSubItem ? "gap-2 pl-8 py-2" : "gap-3 px-3 py-2.5"
-    } rounded-lg transition-colors ${
+      isSubItem ? "gap-2 pl-8 py-2" : "gap-3 px-3 py-2"
+    } rounded-lg transition-colors text-sm ${
       isActive
         ? "bg-blue-100 text-blue-600 font-semibold"
         : "bg-white text-gray-600 hover:bg-gray-100"
@@ -93,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-3 flex-1">
                 {item.icon}
-                {isOpen && <span className="font-medium">{item.label}</span>}
+                {isOpen && <span className="font-medium text-sm">{item.label}</span>}
               </div>
               {isOpen && (
                 <ChevronDown
@@ -110,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                 <button
                   key={child.id}
                   onClick={() => handleTabClick(child.id)}
-                  className={`w-full flex items-center gap-2 pl-8 py-2 rounded-lg transition-colors ${
+                  className={`w-full flex items-center gap-2 pl-8 py-2 rounded-lg transition-colors text-sm ${
                     currentPath === child.id
                       ? "bg-blue-100 text-blue-600 font-semibold"
                       : "bg-white text-gray-600 hover:bg-gray-100"
@@ -128,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       return (
         <button key={item.id} onClick={() => handleTabClick(item.id)} className={baseClass}>
           {item.icon}
-          {isOpen && <span className="font-medium">{item.label}</span>}
+          {isOpen && <span className="font-medium text-sm">{item.label}</span>}
         </button>
       );
     }

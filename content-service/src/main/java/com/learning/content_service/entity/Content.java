@@ -35,6 +35,12 @@ public class Content {
     @Field("duration")  // Cho video
     private Integer duration;  // Giây
 
+    @Field("level")
+    private LevelType level;
+
+    @Field("tags")
+    private String tags;
+
     @Field("created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 

@@ -17,6 +17,7 @@ public class UserResponse {
     String password;
     String email;
     String role;
+    String avatarUrl;
     LocalDateTime  createdAt;
     LocalDateTime updatedAt;
 }
