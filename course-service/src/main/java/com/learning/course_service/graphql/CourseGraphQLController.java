@@ -22,7 +22,6 @@ public class CourseGraphQLController {
     public CoursePage findAllCourses(@Argument Integer page, @Argument Integer size) {
         return courseService.findAllCourses(page != null ? page : 0, size != null ? size : 5);
     }
-
     @QueryMapping
     public List<Course> searchCourses(@Argument String title) {
         return courseService.searchCourses(title);

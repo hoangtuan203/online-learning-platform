@@ -31,7 +31,7 @@ public class User {
     @Column(nullable = false, length = 255)
     private String password;  // Hash bằng BCrypt trong service
 
-    @Column(name = "avatar_url", length = 500)
+    @Column(name = "avatar_url", length = 500, nullable = true)
     private String avatarUrl;
 
     @Enumerated(EnumType.STRING)

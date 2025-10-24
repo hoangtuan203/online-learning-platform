@@ -18,7 +18,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/content-course/")
+@RequestMapping("/contents/")
 @RequiredArgsConstructor
 public class ContentController {
 
@@ -70,12 +70,11 @@ public class ContentController {
     }
 
     @PostMapping("/create")
-    public Mono<ResponseEntity<OperationResponse>> createContent(  // Giữ return Mono (OK cho hybrid)
-                                                                   @Valid @RequestBody CreateContentRequest request) {  // ← BỎ Mono<> Ở ĐÂY! Plain POJO
+    public Mono<ResponseEntity<OperationResponse>> createContent(@Valid @RequestBody CreateContentRequest request) {
 
-        return Mono.just(request)  // Wrap thành Mono để flatMap với service reactive
+        return Mono.just(request)
                 .doOnNext(req -> log.info("Creating content for course id = {}", req.getCourseId()))
-                .flatMap(contentService::createContent)  // Giả sử method này nhận CreateContentRequest, trả Mono<Content>
+                .flatMap(contentService::createContent)
                 .map(content -> {
                     log.info("Content created successfully with id = {}", content.getId());
                     ContentResponse response = mapToResponse(content);

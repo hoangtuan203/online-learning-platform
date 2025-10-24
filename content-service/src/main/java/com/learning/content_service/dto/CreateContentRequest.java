@@ -1,5 +1,6 @@
 package com.learning.content_service.dto;
 
+import com.learning.content_service.entity.QuizQuestion;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -7,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 
+import java.util.List;
 
 
 @Data
@@ -24,17 +26,17 @@ public class CreateContentRequest {
     @NotNull(message = "Loại nội dung không được để trống")
     private String type; // VIDEO, DOCUMENT, QUIZ
 
-    @NotBlank(message = "URL không được để trống")
-    private String url; // URL từ Cloudinary
+    private String url;
 
-    private Integer duration; // Thời lượng (phút)
+    private Integer duration;
 
     @NotBlank(message = "Course ID không được để trống")
     private String courseId;
 
-    private String thumbnail; // URL thumbnail
+    private String thumbnail;
 
-    private String level; // beginner, intermediate, advanced
+    private String level;
 
     private java.util.List<String> tags;
+    private List<QuizQuestion> questions;
 }

@@ -20,7 +20,8 @@ spring:
       max-request-size: 20MB
 server:
   port: 8082
-
+  servlet:
+    context-path: /course-service
 
 eureka:
   client:
@@ -41,3 +42,12 @@ logging:
     org.springframework.graphql: DEBUG         # Log GraphQL execution
     org.hibernate.SQL: DEBUG                   # Log SQL queries
     org.springframework.orm.jpa: DEBUG         # Log JPA/DB errors
+    com.learning.course_service.client.UserClient: DEBUG
+
+app:
+  services:
+    profile:
+      url: http://localhost:8081/user-service
+
+jwt:
+  secret: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"

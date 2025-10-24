@@ -1,72 +1,338 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Upload, Plus, X, Save } from 'lucide-react';
+import {
+  CourseService,
+  type CreateContentRequest,
+  type OperationResponse,
+} from "../../service/CourseService";
+import type { CloudinaryUploadResult } from '../../types/cloudinary';
+
+// Use env vars with fallbacks
+const CLOUDINARY_CLOUD_NAME =
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_NAME || "dm1alq68q";
+const UPLOAD_PRESET =
+  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "ml_default";
+console.log("Cloudinary Cloud Name:", CLOUDINARY_CLOUD_NAME);
+console.log("Cloudinary Upload Preset:", UPLOAD_PRESET);
 
 interface AddDocumentProps {
-  onSubmit: (data: any) => void;
+  courseId: string;
+  onSuccess?: (response: OperationResponse) => void;
   errors: Record<string, string>;
+  isLoading: boolean;
+  setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) => {
-  const [documentForm, setDocumentForm] = useState({
-    title: '',
-    description: '',
-    category: '',
-    instructor: '',
-    tags: [],
-    document: null,
-    thumbnail: null,
+// Hàm nén image cho thumbnail (client-side)
+const compressImage = (file: File, maxWidth: number = 800, quality: number = 0.8): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return reject(new Error('Canvas không hỗ trợ'));
+    
+    img.onload = () => {
+      const { width, height } = img;
+      canvas.width = Math.min(maxWidth, width);
+      canvas.height = (height / width) * canvas.width;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+        } else {
+          reject(new Error('Lỗi nén image'));
+        }
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
   });
+};
 
-  const [docTags, setDocTags] = useState('');
+// Upload direct cho thumbnail sau nén (dùng fetch)
+const uploadCompressedThumbnail = async (compressedFile: File, onSuccess: (url: string, fileName: string) => void, onError: (error: any) => void) => {
+  const formData = new FormData();
+  formData.append('file', compressedFile);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', 'images');
+  formData.append('resource_type', 'image');
 
-  const handleDocInputChange = (e: any) => {
-    const { name, value } = e.target;
-    setDocumentForm(prev => ({ ...prev, [name]: value }));
+  try {
+    const response = await fetch(`https://${CLOUDINARY_CLOUD_NAME}.cloudinary.com/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    const result = await response.json();
+    if (result.secure_url) {
+      onSuccess(result.secure_url, compressedFile.name);
+    } else {
+      throw new Error(result.error?.message || 'Lỗi upload');
+    }
+  } catch (error) {
+    onError(error);
+  }
+};
+
+// Hàm mở Upload Widget (tối ưu với apiHost và progress) - cho document dùng resourceType 'raw'
+const openUploadWidget = (
+  fileType: "document",
+  onSuccess: (url: string, fileName: string) => void,
+  onError: (error: any) => void,
+  onProgress: (progress: number) => void
+) => {
+  const options = {
+    cloudName: CLOUDINARY_CLOUD_NAME,
+    uploadPreset: UPLOAD_PRESET,
+    folder: "document_file",
+    resourceType: 'raw' as const, // Cho PDF/DOC/DOCX
+    maxFiles: 1,
+    clientAllowedFormats: ["pdf", "doc", "docx"],
+    maxFileSize: 50 * 1024 * 1024, // 50MB cho document
+    multiple: false,
+    apiHost: 'api-ap.cloudinary.com', // Data center châu Á để nhanh hơn
   };
 
-  const handleDocFileChange = (e: any, fileType: string) => {
-    const file = e.target.files[0];
-    if (file) {
-      setDocumentForm(prev => ({ ...prev, [fileType]: file.name }));
+  const myWidget = window.cloudinary.openUploadWidget(
+    options,
+    (error: any, result: CloudinaryUploadResult | null) => {
+      if (result && result.event === "queue-upload") {
+        onProgress(0); // Bắt đầu
+      } else if (result && result.event === "upload-progress") {
+        const progress = Math.round((result.info.bytes_uploaded / result.info.bytes_total) * 100);
+        onProgress(progress);
+      } else if (!error && result && result.event === "success") {
+        const url = result.info.secure_url;
+        const fileName = result.info.original_filename;
+        onProgress(100);
+        onSuccess(url, fileName);
+      } else if (error) {
+        onProgress(0);
+        onError(error);
+      }
     }
+  );
+  myWidget.open();
+};
+
+export const AddDocument: React.FC<AddDocumentProps> = ({
+  courseId,
+  onSuccess,
+  errors,
+  isLoading,
+  setErrors,
+  setIsLoading,
+}) => {
+  const [documentForm, setDocumentForm] = useState({
+    title: "",
+    description: "",
+    document: null as File | null,
+    thumbnail: null as File | null,
+    duration: "",
+    level: "EASY", // Updated to match enum
+    tags: [] as string[],
+  });
+
+  const [docTags, setDocTags] = useState("");
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null); // URL từ widget
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [apiError, setApiError] = useState("");
+  const [documentProgress, setDocumentProgress] = useState(0);
+  const [thumbnailProgress, setThumbnailProgress] = useState(0);
+  const courseService = new CourseService();
+
+  // Debounce cho input changes
+  const debouncedInputChange = useCallback((name: string, value: string) => {
+    setDocumentForm((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleDocInputChange = useCallback((
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setTimeout(() => debouncedInputChange(name, value), 0);
+  }, [debouncedInputChange]);
+
+  // Mở widget cho document với progress
+  const handleDocumentWidget = () => {
+    openUploadWidget(
+      "document",
+      (url, fileName) => {
+        setDocumentUrl(url);
+        setDocumentForm((prev) => ({
+          ...prev,
+          document: { name: fileName } as File,
+        }));
+        setDocumentProgress(0);
+        setErrors((prev) => ({ ...prev, document: "" }));
+      },
+      (error) => {
+        setErrors((prev) => ({
+          ...prev,
+          document: `Lỗi upload: ${error.message}`,
+        }));
+        setDocumentProgress(0);
+        console.error("Widget error:", error);
+      },
+      (progress) => setDocumentProgress(progress)
+    );
+  };
+
+  // Handle thumbnail: Chọn file -> nén -> upload direct
+  const handleThumbnailSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { // 5MB trước nén
+      setErrors((prev) => ({ ...prev, thumbnail: "File thumbnail quá lớn, vui lòng chọn <5MB" }));
+      return;
+    }
+    setIsLoading(true);
+    setThumbnailProgress(10); // Bắt đầu nén
+    try {
+      const compressedFile = await compressImage(file);
+      setThumbnailProgress(50); // Nén xong
+      await uploadCompressedThumbnail(
+        compressedFile,
+        (url, fileName) => {
+          setThumbnailUrl(url);
+          setDocumentForm((prev) => ({
+            ...prev,
+            thumbnail: { name: fileName } as File,
+          }));
+          setThumbnailPreview(url);
+          setThumbnailProgress(100);
+          setErrors((prev) => ({ ...prev, thumbnail: "" }));
+        },
+        (error) => {
+          setErrors((prev) => ({
+            ...prev,
+            thumbnail: `Lỗi upload: ${error.message}`,
+          }));
+          setThumbnailProgress(0);
+        }
+      );
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        thumbnail: `Lỗi nén: ${(error as Error).message}`,
+      }));
+      setThumbnailProgress(0);
+    } finally {
+      setIsLoading(false);
+    }
+    // Clear input
+    e.target.value = '';
   };
 
   const addDocTag = () => {
     if (docTags.trim() && !documentForm.tags.includes(docTags.trim())) {
-      setDocumentForm(prev => ({
+      setDocumentForm((prev) => ({
         ...prev,
-        tags: [...prev.tags, docTags.trim()]
+        tags: [...prev.tags, docTags.trim()],
       }));
-      setDocTags('');
+      setDocTags("");
     }
   };
 
   const removeDocTag = (tagToRemove: string) => {
-    setDocumentForm(prev => ({
+    setDocumentForm((prev) => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: prev.tags.filter((tag) => tag !== tagToRemove),
     }));
   };
 
-  const handleSubmit = () => {
-    onSubmit(documentForm);
+  const handleSubmit = async () => {
+    if (!documentForm.title.trim() || !documentForm.description.trim() || !documentUrl) {
+      setErrors((prev) => ({
+        ...prev,
+        title: !documentForm.title.trim() ? "Tiêu đề không được để trống" : prev.title,
+        description: !documentForm.description.trim() ? "Mô tả không được để trống" : prev.description,
+        document: !documentUrl ? "File tài liệu bắt buộc (vui lòng upload qua widget)" : prev.document,
+      }));
+      return;
+    }
+
+    setIsLoading(true);
+    setApiError("");
+    setErrors((prev) => ({ ...prev, apiError: "" }));
+
+    try {
+      console.log('Submitting with courseId:', courseId);  // Debug log
+
+      const data: CreateContentRequest = {
+        courseId,
+        title: documentForm.title,
+        description: documentForm.description,
+        type: "DOCUMENT",
+        url: documentUrl, // URL từ widget
+        duration: documentForm.duration ? parseInt(documentForm.duration, 10) : undefined,
+        thumbnail: thumbnailUrl || undefined,
+        level: documentForm.level,
+        tags: documentForm.tags,
+        questions: [],
+      };
+
+      console.log('Request data:', data);  // Log full body để check
+
+      const response = await courseService.createContent(data);
+
+      if (response.success) {
+        resetForm();
+        if (onSuccess) onSuccess(response);
+        console.log("Tạo document thành công:", response.content);
+      } else {
+        throw new Error(response.errorMessage || "Lỗi không xác định từ server");
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Lỗi không xác định";
+      setApiError(`Lỗi lưu content: ${errorMsg}. Kiểm tra courseId: ${courseId || 'NULL'}`);
+      setErrors((prev) => ({ ...prev, apiError: errorMsg }));
+      console.error("Lỗi tạo content:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
     setDocumentForm({
-      title: '',
-      description: '',
-      category: '',
-      instructor: '',
-      tags: [],
+      title: "",
+      description: "",
       document: null,
       thumbnail: null,
+      duration: "",
+      level: "EASY",
+      tags: [],
     });
-    setDocTags('');
+    setDocTags("");
+    setDocumentUrl(null);
+    setThumbnailUrl(null);
+    setDocumentProgress(0);
+    setThumbnailProgress(0);
+    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
+    setThumbnailPreview(null);
+    setApiError("");
+    setErrors({});
   };
+
+  // Progress Bar component đơn giản
+  const ProgressBar = ({ progress }: { progress: number }) => (
+    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+      <div
+        className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+        style={{ width: `${progress}%` }}
+      ></div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
+      {apiError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {apiError}
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Tiêu Đề Tài Liệu <span className="text-red-500">*</span>
@@ -78,10 +344,15 @@ export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) =>
           onChange={handleDocInputChange}
           placeholder="Nhập tiêu đề tài liệu"
           className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition ${
-            errors.title ? 'border-red-300 bg-red-50' : 'border-gray-300'
+            errors.title
+              ? "border-red-300 bg-red-50 text-gray-900"
+              : "border-gray-300 text-gray-900"
           }`}
+          disabled={isLoading}
         />
-        {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
+        {errors.title && (
+          <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+        )}
       </div>
 
       <div>
@@ -95,51 +366,18 @@ export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) =>
           placeholder="Nhập mô tả chi tiết về tài liệu"
           rows={4}
           className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition ${
-            errors.description ? 'border-red-300 bg-red-50' : 'border-gray-300'
+            errors.description
+              ? "border-red-300 bg-red-50 text-gray-900"
+              : "border-gray-300 text-gray-900"
           }`}
+          disabled={isLoading}
         />
-        {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+        {errors.description && (
+          <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Danh Mục <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="category"
-            value={documentForm.category}
-            onChange={handleDocInputChange}
-            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition ${
-              errors.category ? 'border-red-300 bg-red-50' : 'border-gray-300'
-            }`}
-          >
-            <option value="">Chọn danh mục</option>
-            <option value="web">Web Development</option>
-            <option value="mobile">Mobile Dev</option>
-            <option value="data">Data Science</option>
-            <option value="design">UI/UX Design</option>
-            <option value="backend">Backend</option>
-            <option value="frontend">Frontend</option>
-          </select>
-          {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Giảng Viên
-          </label>
-          <input
-            type="text"
-            name="instructor"
-            value={documentForm.instructor}
-            onChange={handleDocInputChange}
-            placeholder="Tên giảng viên"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-          />
-        </div>
-      </div>
-
+    
       <div>
         <h3 className="text-sm font-medium text-gray-700 mb-3">Tags</h3>
         <div className="flex gap-2 mb-3">
@@ -147,20 +385,28 @@ export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) =>
             type="text"
             value={docTags}
             onChange={(e) => setDocTags(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addDocTag())}
+            onKeyPress={(e) =>
+              e.key === "Enter" && (e.preventDefault(), addDocTag())
+            }
             placeholder="Thêm tag và nhấn Enter"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition ${
+              errors.tags
+                ? "border-red-300 bg-red-50 text-gray-900"
+                : "border-gray-300 text-gray-900"
+            }`}
+            disabled={isLoading}
           />
           <button
             onClick={addDocTag}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-medium flex items-center gap-2"
+            disabled={isLoading || !docTags.trim()}
           >
             <Plus size={18} />
           </button>
         </div>
         {documentForm.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {documentForm.tags.map(tag => (
+            {documentForm.tags.map((tag) => (
               <span
                 key={tag}
                 className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm flex items-center gap-2 border border-indigo-200"
@@ -169,6 +415,7 @@ export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) =>
                 <button
                   onClick={() => removeDocTag(tag)}
                   className="hover:text-indigo-900"
+                  disabled={isLoading}
                 >
                   <X size={14} />
                 </button>
@@ -176,37 +423,93 @@ export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) =>
             ))}
           </div>
         )}
+        {errors.tags && (
+          <p className="text-red-500 text-sm mt-1">{errors.tags}</p>
+        )}
       </div>
 
+      {/* File Upload: Cập nhật với progress và nén */}
       <div>
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Tải Lên File</h3>
+        <h3 className="text-sm font-medium text-gray-700 mb-3">
+          Tải Lên File (giới hạn document: 50MB)
+        </h3>
         <div className="grid grid-cols-2 gap-4">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-500 transition cursor-pointer relative group">
+          {/* Thumbnail: Input file + nén + progress */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-500 transition cursor-pointer relative group flex flex-col items-center justify-center">
             <input
               type="file"
-              onChange={(e) => handleDocFileChange(e, 'thumbnail')}
-              className="absolute inset-0 opacity-0 cursor-pointer"
               accept="image/*"
+              onChange={handleThumbnailSelect}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              disabled={isLoading}
             />
-            <div className="text-center pointer-events-none">
-              <Upload className="mx-auto mb-2 text-gray-400 group-hover:text-indigo-500 transition" size={32} />
-              <p className="text-sm text-gray-700 font-medium">Hình Thumbnail</p>
-              <p className="text-xs text-gray-500 mt-1">{documentForm.thumbnail || 'Chọn ảnh'}</p>
+            <div className="text-center">
+              <Upload
+                className="mx-auto mb-2 text-gray-400 group-hover:text-indigo-500 transition"
+                size={32}
+              />
+              <p className="text-sm text-gray-700 font-medium">
+                Hình Thumbnail
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {documentForm.thumbnail
+                  ? documentForm.thumbnail.name
+                  : "Chọn file để nén & upload (tùy chọn)"}
+              </p>
             </div>
+            {thumbnailProgress > 0 && thumbnailProgress < 100 && (
+              <div className="mt-2 w-full">
+                <p className="text-xs text-indigo-600">Đang nén & upload...</p>
+                <ProgressBar progress={thumbnailProgress} />
+              </div>
+            )}
+            {thumbnailPreview && (
+              <div className="mt-4 flex justify-center">
+                <img
+                  src={thumbnailPreview}
+                  alt="Thumbnail Preview"
+                  className="max-w-full h-auto rounded-lg border border-gray-200"
+                  style={{ maxHeight: "150px" }}
+                />
+              </div>
+            )}
+            {errors.thumbnail && (
+              <p className="text-red-500 text-sm mt-1 text-center">
+                {errors.thumbnail}
+              </p>
+            )}
           </div>
 
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-500 transition cursor-pointer relative group">
-            <input
-              type="file"
-              onChange={(e) => handleDocFileChange(e, 'document')}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-              accept=".pdf,.doc,.docx"
+          {/* Document Widget với progress */}
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-indigo-500 transition cursor-pointer relative group flex flex-col items-center justify-center">
+            <button
+              onClick={handleDocumentWidget}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              disabled={isLoading}
             />
-            <div className="text-center pointer-events-none">
-              <Upload className="mx-auto mb-2 text-gray-400 group-hover:text-indigo-500 transition" size={32} />
-              <p className="text-sm text-gray-700 font-medium">File Tài Liệu</p>
-              <p className="text-xs text-gray-500 mt-1">{documentForm.document || 'Chọn file'}</p>
+            <div className="text-center">
+              <Upload
+                className="mx-auto mb-2 text-gray-400 group-hover:text-indigo-500 transition"
+                size={32}
+              />
+              <p className="text-sm text-gray-700 font-medium">
+                File Tài Liệu <span className="text-red-500">*</span>
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {documentForm.document ? documentForm.document.name : "Click để mở Widget (max 50MB)"}
+              </p>
             </div>
+            {documentProgress > 0 && documentProgress < 100 && (
+              <div className="mt-2 w-full">
+                <p className="text-xs text-indigo-600">Đang upload...</p>
+                <ProgressBar progress={documentProgress} />
+              </div>
+            )}
+            {errors.document && (
+              <p className="text-red-500 text-sm mt-1 text-center">
+                {errors.document}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -215,15 +518,22 @@ export const AddDocument: React.FC<AddDocumentProps> = ({ onSubmit, errors }) =>
         <button
           onClick={resetForm}
           className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+          disabled={isLoading}
         >
           Hủy
         </button>
         <button
           onClick={handleSubmit}
-          className="px-6 py-2.5 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition flex items-center gap-2"
+          className="px-6 py-2.5 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          disabled={
+            isLoading ||
+            !documentUrl ||
+            !documentForm.title.trim() ||
+            !documentForm.description.trim()
+          }
         >
           <Save size={18} />
-          Lưu Tài Liệu
+          {isLoading ? "Đang lưu..." : "Lưu Tài Liệu"}
         </button>
       </div>
     </div>

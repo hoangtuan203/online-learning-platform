@@ -21,18 +21,13 @@ const Login: React.FC = () => {
     }
     setIsLoading(true);
     try {
-      // Gọi API login với username và password
       const response = await userService.login({ username, password });
       
-      // Lưu accessToken, refreshToken và user vào localStorage khi login thành công
       localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken);
       localStorage.setItem("user", JSON.stringify(response.user));
       
-      // Hiển thị thông báo thành công
       toast.success("Đăng nhập thành công!");
       
-      // Điều hướng đến trang dashboard hoặc home
       navigate("/dashboard"); // Điều chỉnh route nếu cần
     } catch (error) {
       // Xử lý lỗi từ service
@@ -132,7 +127,7 @@ const Login: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-black bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
             >
               {isLoading && <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

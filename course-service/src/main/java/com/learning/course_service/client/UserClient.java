@@ -2,54 +2,52 @@ package com.learning.course_service.client;
 
 import com.learning.course_service.dto.UserDTO;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.Map;
 
-@FeignClient(name = "user-service")
+@FeignClient(name = "user-service",url = "${app.services.profile.url}")
 public interface UserClient {
 
-    @PostMapping("/graphql")
-    Map<String, Object> executeGraphQL(@RequestBody Map<String, Object> requestBody, @RequestHeader(value = "Authorization", required = false) String authHeader);
+    public static final String APPLICATION_JSON = MediaType.APPLICATION_JSON_VALUE;
+
+    @PostMapping(value = "/graphql", consumes = APPLICATION_JSON)
+    Map<String, Object> executeGraphQL(@RequestBody Map<String, Object> requestBody);
 
     default UserDTO getUserById(Long id, String token) {
-        String query = String.format("{ getUserById(id: %d) { id username email role } }", id);
-        Map<String, Object> request = Map.of("query", query);
+        Map<String, Object> variables = Map.of("id", id.toString());
+        Map<String, Object> request = Map.of(
+                "query", """
+                query GetUser($id: ID!) {
+                    getUserById(id: $id) { id username email role }
+                }
+                """,
+                "variables", variables
+        );
 
-        String authHeader = (token != null && !token.isEmpty()) ? "Bearer " + token : null;
-
-        Map<String, Object> response;
         try {
-            response = executeGraphQL(request, authHeader);
+            Map<String, Object> response = executeGraphQL(request);
+            return parseUserResponse(response);
         } catch (Exception e) {
             throw new RuntimeException("Feign call to user-service failed: " + e.getMessage());
         }
+    }
 
-        if (response.containsKey("errors")) {
-            Object errors = response.get("errors");
-            throw new RuntimeException("GraphQL error in user-service: " + errors.toString());
+    private UserDTO parseUserResponse(Map<String, Object> response) {
+        if (response.get("errors") != null) {
+            throw new RuntimeException("GraphQL error in user-service: " + response.get("errors"));
         }
+
+        @SuppressWarnings("unchecked")
         Map<String, Object> data = (Map<String, Object>) response.get("data");
-        if (data == null || !data.containsKey("getUserById")) {
-            return null;
-        }
-
+        @SuppressWarnings("unchecked")
         Map<String, Object> userMap = (Map<String, Object>) data.get("getUserById");
+        if (userMap == null) return null;
+
         UserDTO user = new UserDTO();
-
-        Object idObj = userMap.get("id");
-        if (idObj instanceof String idStr) {
-            try {
-                user.setId(Long.parseLong(idStr));
-            } catch (NumberFormatException e) {
-                throw new RuntimeException("Invalid ID format from user-service: " + idStr);
-            }
-        } else {
-            user.setId(null);
-        }
-
+        user.setId(Long.valueOf((String) userMap.get("id")));
         user.setUsername((String) userMap.get("username"));
         user.setEmail((String) userMap.get("email"));
         user.setRole((String) userMap.get("role"));

@@ -1,5 +1,6 @@
 package com.learning.content_service.entity;
 
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -8,9 +9,11 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Document(collection = "contents")  // Bảng MongoDB
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Content {
@@ -32,6 +35,9 @@ public class Content {
     @Field("url")
     private String url;  // URL video/file
 
+    @Field("thumbnail")
+    private String thumbnail;
+
     @Field("duration")  // Cho video
     private Integer duration;  // Giây
 
@@ -46,5 +52,9 @@ public class Content {
 
     @Field("updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    private List<QuizQuestion> questions;
+
+
 }
 

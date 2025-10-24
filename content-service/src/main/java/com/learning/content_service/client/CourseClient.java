@@ -2,46 +2,51 @@ package com.learning.content_service.client;
 
 import com.learning.content_service.dto.CourseDTO;
 import com.learning.content_service.dto.UserDTO;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
-@FeignClient(name = "course-service")
+
+@FeignClient(name = "course-service", url = "${app.services.course.url}", configuration = FeignClientInterceptor.class)
 public interface CourseClient {
 
     @PostMapping("/graphql")
     Map<String, Object> executeGraphQL(@RequestBody Map<String, Object> requestBody, @RequestHeader(value = "Authorization", required = false) String authHeader);
 
-    default CourseDTO getCourseById(Long id, String token) {
+    default CourseDTO getCourseById(Long id) {
+        Logger log = LoggerFactory.getLogger(CourseClient.class);  // Tạo logger thủ công
+        log.info("Fetching course by ID: {}", id);
         String query = String.format("{ getCourseById(id: %d) { id title description instructor { id fullName } price thumbnailUrl createdAt } }", id);
         Map<String, Object> request = Map.of("query", query);
 
-        String authHeader = (token != null && !token.isEmpty()) ? "Bearer " + token : null;
-
         Map<String, Object> response;
         try {
-            response = executeGraphQL(request, authHeader);
+            response = executeGraphQL(request, null);  // authHeader = null, để interceptor handle
         } catch (Exception e) {
+            log.error("Feign call to course-service failed for course ID {}: {}", id, e.getMessage(), e);
             throw new RuntimeException("Feign call to course-service failed: " + e.getMessage(), e);
         }
 
         if (response.containsKey("errors")) {
             Object errors = response.get("errors");
+            log.error("GraphQL error for course ID {}: {}", id, errors);
             throw new RuntimeException("GraphQL error in course-service: " + errors.toString());
         }
 
-        @SuppressWarnings("unchecked")
         Map<String, Object> data = (Map<String, Object>) response.get("data");
         if (data == null || !data.containsKey("getCourseById")) {
+            log.warn("No course data found for ID: {}", id);
             return null;
         }
 
-        @SuppressWarnings("unchecked")
         Map<String, Object> courseMap = (Map<String, Object>) data.get("getCourseById");
         if (courseMap == null) {
+            log.warn("Course map is null for ID: {}", id);
             return null;
         }
 
@@ -55,6 +60,7 @@ public interface CourseClient {
                 try {
                     course.setCourseId(Long.parseLong(idStr));
                 } catch (NumberFormatException e) {
+                    log.error("Invalid ID format from course-service for ID {}: {}", id, idStr);
                     throw new RuntimeException("Invalid ID format from course-service: " + idStr, e);
                 }
             } else {
@@ -90,7 +96,8 @@ public interface CourseClient {
                     try {
                         instructor.setId(Long.parseLong(instIdStr));
                     } catch (NumberFormatException e) {
-                        // Log nhưng continue
+                        log.warn("Invalid instructor ID format: {}", instIdStr);
+                        // Log nhưng continue, không throw
                     }
                 }
             }
@@ -98,16 +105,27 @@ public interface CourseClient {
             course.setInstructor(instructor);
         }
 
-        // Parse createdAt
+        // Parse createdAt với fallback để tránh DateTimeParseException
         String createdAtStr = (String) courseMap.get("createdAt");
-        if (createdAtStr != null) {
+        if (createdAtStr != null && !createdAtStr.trim().isEmpty()) {
             try {
-                course.setCreatedAt(LocalDateTime.parse(createdAtStr));  // Giả sử method là setCreatedAt
+                // Thử parse ISO-8601 trước (mặc định)
+                course.setCreatedAt(LocalDateTime.parse(createdAtStr));
             } catch (DateTimeParseException e) {
-                throw new RuntimeException("Invalid createdAt format from course-service: " + createdAtStr, e);
+                try {
+                    // Fallback: Giả sử format dd/MM/yyyy HH:mm:ss (thay bằng format thực tế từ course-service nếu khác)
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+                    course.setCreatedAt(LocalDateTime.parse(createdAtStr, formatter));
+                } catch (DateTimeParseException e2) {
+                    log.warn("Invalid createdAt format from course-service for course ID {}: {}. Skipping.", id, createdAtStr);
+                    course.setCreatedAt(null);  // Fallback null thay vì throw
+                }
             }
+        } else {
+            course.setCreatedAt(null);
         }
 
+        log.info("Successfully fetched course: {}", course.getTitle());
         return course;
     }
 }

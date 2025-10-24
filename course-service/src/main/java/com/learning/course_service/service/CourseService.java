@@ -64,7 +64,8 @@ public class CourseService {
                 throw new IllegalArgumentException("Instructor không tồn tại");
             }
 
-            if (!"INSTRUCTOR".equals(userDTO.getRole()) && !"TEACHER".equals(userDTO.getRole())) {
+            if (!"INSTRUCTOR".equals(userDTO.getRole()) && !"ADMIN".equals(userDTO.getRole())) {
+                log.info("role : " + userDTO.getRole());
                 throw new IllegalArgumentException("User không có quyền tạo khóa học");
             }
 
@@ -95,11 +96,8 @@ public class CourseService {
                 String thumbnailUrl = cloudinaryService.uploadThumbnail(thumbnail);
                 course.setThumbnailUrl(thumbnailUrl);
             }
-
             Course savedCourse = courseRepository.save(course);
-
             savedCourse.setInstructorDTO(userDTO);
-
             return savedCourse;
 
         } catch (feign.FeignException.Unauthorized e) {

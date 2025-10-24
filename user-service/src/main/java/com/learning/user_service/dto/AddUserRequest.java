@@ -14,6 +14,6 @@ public class AddUserRequest {
     String password;
     String name;
     String email;
-    User.Role role;
+    String role;
     String avatarUrl;
 }

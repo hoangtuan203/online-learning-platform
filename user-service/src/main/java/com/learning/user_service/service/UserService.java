@@ -11,6 +11,7 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,9 +29,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.text.ParseException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
@@ -51,17 +54,36 @@ public class UserService {
     @NonFinal
     @Value("${jwt.refreshable-duration}")
     protected long REFRESHABLE_DURATION;
-    @Autowired
     private UserRepository userRepository;
-    @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private UserMapper  userMapper;
-    @Autowired
+    private UserMapper userMapper;
     private CloudinaryService cloudinaryService;
 
-    public record  TokenInfo(String token, Date expiryDate){}
+    public UserService(UserRepository userRepository, UserMapper userMapper, CloudinaryService cloudinaryService,
+                       PasswordEncoder passwordEncoder){
+        this.userRepository = userRepository;
+        this.userMapper = userMapper;
+        this.cloudinaryService = cloudinaryService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    public record TokenInfo(String token, Date expiryDate) {
+    }
+
+    public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
+        var token = request.getToken();
+        boolean isValid = true;
+
+        try {
+            verifyToken(token, false);
+        } catch (AppException e) {
+            isValid = false;
+        }
+
+        return IntrospectResponse.builder().valid(isValid).build();
+    }
+
 
     public UserPage findAllUsers(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
@@ -80,9 +102,17 @@ public class UserService {
         return dto;
     }
 
-    public User addUser(AddUserRequest request, MultipartFile avatarUrl) {
+    public User addUser(AddUserRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email đã tồn tại");
+        }
+
+        String roleStr = request.getRole();
+        User.Role role;
+        try {
+            role = User.Role.valueOf(roleStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Role không hợp lệ: " + roleStr);
         }
 
         User user = new User();
@@ -90,22 +120,33 @@ public class UserService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole());
-        if (avatarUrl != null && !avatarUrl.isEmpty()) {
-            String avatarUser = cloudinaryService.uploadAvatarUser(avatarUrl);
-            user.setAvatarUrl(avatarUser);
-        }
+        user.setRole(role);
 
-        return userRepository.save(user);
+        try {
+            return userRepository.save(user);
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi lưu user vào database: " + e.getMessage());
+        }
     }
 
-    private String buildScope(User user) {
-        StringJoiner stringJoiner = new StringJoiner(" ");
-        User.Role role = user.getRole();
-        if (role != null) {
-            stringJoiner.add("ROLE_" + role.name());
+
+    public String uploadAvatar(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User không tồn tại với ID: " + userId));
+
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File ảnh không hợp lệ");
         }
-        return stringJoiner.toString();
+
+        try {
+            String avatarUrl = cloudinaryService.uploadAvatarUser(file);
+            user.setAvatarUrl(avatarUrl);
+            user.setUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+            return avatarUrl;
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi upload avatar: " + e.getMessage());
+        }
     }
 
 
@@ -168,37 +209,44 @@ public class UserService {
         }
     }
 
-        // ← FIX: authenticate (sync, không Mono)
-        public AuthResponse authenticate(LoginRequest request) {
-            if (request == null || request.getUsername() == null || request.getPassword() == null) {
-                log.warn("Login request null hoặc thiếu fields");
-                throw new IllegalArgumentException("Username và password bắt buộc");
-            }
 
-            User user = userRepository.findByUsername(request.getUsername())
-                    .orElseThrow(() -> {
-                        log.warn("User not found: {}", request.getUsername());
-                        return new AppException(ErrorCode.USER_NOT_EXISTED);
-                    });
-
-            log.info("Found user: {} with role: {}", user.getUsername(), user.getRole());
-
-            boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPassword());
-            if (!authenticated) {
-                log.warn("Invalid password for user: {}", user.getUsername());
-                throw new AppException(ErrorCode.INVALID_PASSWORD);
-            }
-
-            log.info("User {} authenticated successfully", user.getUsername());
-
-            String token = generateToken(user);
-
-            return AuthResponse.builder()
-                    .accessToken(token)
-                    .user(user)
-                    .authenticated(true)
-                    .build();
+    public AuthResponse authenticate(LoginRequest request) {
+        if (request == null || request.getUsername() == null || request.getPassword() == null) {
+            log.warn("Login request null hoặc thiếu fields");
+            throw new IllegalArgumentException("Username và password bắt buộc");
         }
+
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> {
+                    log.warn("User not found: {}", request.getUsername());
+                    return new AppException(ErrorCode.USER_NOT_EXISTED);
+                });
+
+        log.info("Found user: {} with role: {}", user.getUsername(), user.getRole());
+
+        boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        if (!authenticated) {
+            log.warn("Invalid password for user: {}", user.getUsername());
+            throw new AppException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        log.info("User {} authenticated successfully", user.getUsername());
+
+        String token = generateToken(user);
+
+        return AuthResponse.builder()
+                .accessToken(token)
+                .user(user)
+                .authenticated(true)
+                .build();
+    }
+
+    private String buildScope(User user) {
+        if (user.getRole() != null) {
+            return "ROLE_" + user.getRole().toString();
+        }
+        return "ROLE_USER";
+    }
 
     private SignedJWT verifyToken(String token, boolean isRefresh) throws JOSEException, ParseException {
         JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());

@@ -4,13 +4,12 @@ spring:
 
   data:
     mongodb:
-      authentication-database: admin
-      database: content_db
-      host: localhost
-      port: 27017
+      uri: mongodb://root:root@localhost:27017/content_db?authSource=admin
 
 server:
   port: 8084
+  servlet:
+    context-path: /content-service
 
 eureka:
   client:
@@ -19,7 +18,6 @@ eureka:
   instance:
     prefer-ip-address: true
 
-#reactive webflux streaming
 reactor:
   netty:
     threads: 200
@@ -33,3 +31,11 @@ logging:
   level:
     com.learning.content_service: DEBUG
     org.springframework.graphql: DEBUG
+
+
+app:
+  services:
+    course:
+      url: http://localhost:8082/course-service
+jwt:
+  secret: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"

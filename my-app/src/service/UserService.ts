@@ -1,80 +1,18 @@
 import axios from "axios";
 import type { AuthResponse, LoginRequest, UserPage } from "../types/User";
 import httpRequest from "../utils/httpRequest";
-
-const LOGIN_MUTATION = `
-  mutation Login($input: LoginInput!) {
-    login(input: $input) {
-      accessToken
-      refreshToken
-      user {
-        id
-        username
-        name
-        email
-        role
-      }
-    }
-  }
-`;
-
-const FIND_ALL_USERS_QUERY = `
-  query FindAllUsers($page: Int!, $size: Int!) {
-    findAllUsers(page: $page, size: $size) {
-      user {
-        id
-        username
-        name
-        email
-        role
-        avatarUrl
-        createdAt
-        updatedAt
-      }
-      totalElements
-      totalPages
-      currentPage
-    }
-  }
-`;
-
-
-const SEARCH_USERS_QUERY = `
-  query SearchUsers($name: String, $role: Role, $page: Int!, $size: Int!) {
-    searchUsers(name: $name, role: $role, page: $page, size: $size) {
-      user {
-        id
-        username
-        name
-        email
-        role
-        createdAt
-        updatedAt
-      }
-      totalElements
-      totalPages
-      currentPage
-    }
-  }
-`;
-
-
+import { getAuthHeaders } from "../utils/auth";
 
 export class UserService {
     private async authenticateUser(request: LoginRequest): Promise<AuthResponse> {
         try {
-            const response = await httpRequest.post('/users/graphql', {
-                query: LOGIN_MUTATION,
-                variables: { input: request }
-            });
-            const { data } = response.data;
-            if (!data?.login) {
+            const response = await httpRequest.post('/user-service/users/login', request);
+            if (!response.data) {
                 throw new Error('Không nhận được dữ liệu đăng nhập từ server');
             }
-            return data.login;
+            return response.data;
         } catch (error) {
             if (axios.isAxiosError(error)) {
-
                 if (error.response?.status === 401) {
                     throw new Error('Tài khoản hoặc mật khẩu không đúng');
                 }
@@ -101,26 +39,20 @@ export class UserService {
             throw new Error(`Lỗi đăng nhập: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     }
-
-    //find all users
     public async getAllUsers(page = 0, size = 10): Promise<UserPage> {
         try {
-            const response = await httpRequest.post('/users/graphql', {
-                query: FIND_ALL_USERS_QUERY,
-                variables: { page, size },
-            });
-
-            const { data, errors } = response.data;
-
-            if (errors && errors.length > 0) {
-                throw new Error(errors[0].message || 'GraphQL query error');
+            const authHeaders = getAuthHeaders();
+            const config = {
+                params: { page, size },
+                ...authHeaders
             }
+            const response = await httpRequest.get('/user-service/users', config);
 
-            if (!data?.findAllUsers) {
+            if (!response.data) {
                 throw new Error('Không nhận được dữ liệu người dùng từ server');
             }
 
-            return data.findAllUsers;
+            return response.data;
         } catch (error) {
             if (axios.isAxiosError(error)) {
                 throw new Error(
@@ -132,28 +64,22 @@ export class UserService {
     }
 
     public async searchUsers(
-        name?: string,
-        role?: string,
         page = 0,
         size = 5
     ): Promise<UserPage> {
         try {
-            const response = await httpRequest.post("/users/graphql", {
-                query: SEARCH_USERS_QUERY,
-                variables: { name, role, page, size },
-            });
-
-            const { data, errors } = response.data;
-
-            if (errors && errors.length > 0) {
-                throw new Error(errors[0].message || "GraphQL query error");
+            const authHeaders = getAuthHeaders();
+            const config = {
+                params: { page, size },
+                ...authHeaders
             }
+            const response = await httpRequest.get("user-service//users/search", config);
 
-            if (!data?.searchUsers) {
+            if (!response.data) {
                 throw new Error("Không nhận được dữ liệu tìm kiếm từ server");
             }
 
-            return data.searchUsers;
+            return response.data;
         } catch (error) {
             if (axios.isAxiosError(error)) {
                 throw new Error(
@@ -163,5 +89,4 @@ export class UserService {
             throw error;
         }
     }
-
 }
