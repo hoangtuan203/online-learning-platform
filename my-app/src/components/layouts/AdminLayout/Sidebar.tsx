@@ -69,8 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
     } rounded-lg transition-colors text-sm ${
       isActive
         ? "bg-blue-100 text-blue-600 font-semibold"
-        : "bg-white text-gray-600 hover:bg-gray-100"
-    }`;
+        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+    } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`; // Added focus ring to override global
 
     if (item.children && !isSubItem) {
       const isExpandedItem = expanded.has(item.id);
@@ -88,21 +88,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                 return newSet;
               });
             }}
-            className={baseClass}
+            className={`${baseClass} justify-between`} // Ensure button styles override <a> inheritance
           >
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3 flex-1">
-                {item.icon}
-                {isOpen && <span className="font-medium text-sm">{item.label}</span>}
-              </div>
-              {isOpen && (
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${
-                    isExpandedItem ? "rotate-180" : ""
-                  }`}
-                />
-              )}
+            <div className="flex items-center gap-3 flex-1">
+              {item.icon}
+              {isOpen && <span className="font-medium text-sm">{item.label}</span>}
             </div>
+            {isOpen && (
+              <ChevronDown
+                className={`w-4 h-4 transition-transform ${
+                  isExpandedItem ? "rotate-180" : ""
+                }`}
+              />
+            )}
           </button>
           {isOpen && isExpandedItem && (
             <div className="space-y-1 ml-4">
@@ -110,11 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
                 <button
                   key={child.id}
                   onClick={() => handleTabClick(child.id)}
-                  className={`w-full flex items-center gap-2 pl-8 py-2 rounded-lg transition-colors text-sm ${
-                    currentPath === child.id
-                      ? "bg-blue-100 text-blue-600 font-semibold"
-                      : "bg-white text-gray-600 hover:bg-gray-100"
-                  }`}
+                  className={`${baseClass} justify-start`} // Explicit button to avoid <a> styles
                 >
                   {child.icon}
                   <span className="font-medium">{child.label}</span>
@@ -126,7 +120,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       );
     } else {
       return (
-        <button key={item.id} onClick={() => handleTabClick(item.id)} className={baseClass}>
+        <button 
+          key={item.id} 
+          onClick={() => handleTabClick(item.id)} 
+          className={baseClass}
+        >
           {item.icon}
           {isOpen && <span className="font-medium text-sm">{item.label}</span>}
         </button>

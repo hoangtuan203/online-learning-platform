@@ -1,5 +1,4 @@
-// Updated CoursePage.tsx
-
+// Updated CoursePage.tsx (với import và sử dụng LoadingSpinner)
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -9,12 +8,17 @@ import {
   ArrowDown,
   RefreshCw,
   PlusCircle,
+  Eye,
+  DollarSign,
+  Calendar,
+  X, // Added Eye icon import
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CourseService } from "../../service/CourseService";
 import type { Course } from "../../types/Course";
 import type { CoursePage } from "../../types/Course";
 import CourseContentsModal from "./CourseContentModel";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const CourseThumbnail: React.FC<{ thumbnailUrl?: string; title: string }> = ({
   thumbnailUrl,
@@ -78,8 +82,7 @@ const CoursePage: React.FC = () => {
     fetchCourses(currentPage, pageSize);
   };
 
-  // New: Handle double-click to open modal
-  const handleCourseDoubleClick = (course: Course) => {
+  const handleViewContents = (course: Course) => {
     setSelectedCourse(course);
     setIsModalOpen(true);
   };
@@ -88,7 +91,6 @@ const CoursePage: React.FC = () => {
     fetchCourses(currentPage, pageSize);
   }, [currentPage, pageSize]);
 
-  // Hàm sort courses (client-side cho filtered results)
   const sortCourses = (courses: Course[]) => {
     if (!sortBy) return courses;
 
@@ -161,7 +163,6 @@ const CoursePage: React.FC = () => {
       pages.push(0);
     }
 
-    // Show pages around current page
     for (
       let i = Math.max(0, currentPage - delta);
       i <= Math.min(totalPages - 1, currentPage + delta);
@@ -172,19 +173,17 @@ const CoursePage: React.FC = () => {
       }
     }
 
-    // Always show last page
     if (totalPages > 1 && !pages.includes(totalPages - 1)) {
       pages.push(totalPages - 1);
     }
 
-    // Remove duplicates and sort
     return [...new Set(pages)].sort((a, b) => a - b);
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] bg-gray-50">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -213,84 +212,74 @@ const CoursePage: React.FC = () => {
             </div>
 
             {/* Sort & Refresh Controls */}
-            <div className="flex items-center space-x-1 bg-white border border-gray-300 rounded-lg p-1">
-              <button
-                onClick={() => toggleSort("price")}
-                className={`flex items-center px-2 py-1 rounded-md transition-colors text-xs ${
-                  sortBy === "price"
-                    ? "bg-blue-100 text-blue-700 border border-blue-300"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-                title="Sắp xếp theo giá"
-              >
-                {sortBy === "price" ? (
-                  sortOrder === "asc" ? (
-                    <ArrowUp className="w-3 h-3" />
-                  ) : (
-                    <ArrowDown className="w-3 h-3" />
-                  )
-                ) : (
-                  <span>₫</span>
-                )}
-              </button>
-
-              <button
-                onClick={() => toggleSort("createdAt")}
-                className={`flex items-center px-2 py-1 rounded-md transition-colors text-xs ${
-                  sortBy === "createdAt"
-                    ? "bg-blue-100 text-blue-700 border border-blue-300"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-                title="Sắp xếp theo ngày"
-              >
-                {sortBy === "createdAt" ? (
-                  sortOrder === "asc" ? (
-                    <ArrowUp className="w-3 h-3" />
-                  ) : (
-                    <ArrowDown className="w-3 h-3" />
-                  )
-                ) : (
-                  <span>📅</span>
-                )}
-              </button>
-
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className={`flex items-center p-1 rounded-md transition-colors ${
-                  isRefreshing
-                    ? "text-gray-400 cursor-not-allowed"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-indigo-600"
-                }`}
-                title="Làm mới dữ liệu"
-              >
-                <RefreshCw
-                  className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
-                />
-              </button>
-
-              {(searchTerm || sortBy) && (
+      <div className="flex items-center space-x-1 bg-white p-2">
                 <button
-                  onClick={clearFilters}
-                  className="flex items-center p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Xóa bộ lọc"
+                  onClick={() => toggleSort("price")}
+                  className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-xs font-medium ${
+                    sortBy === "price"
+                      ? "bg-blue-100 text-blue-700 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                  title="Sắp xếp theo giá"
                 >
-                  <svg
-                    className="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  {sortBy === "price" ? (
+                    sortOrder === "asc" ? (
+                      <ArrowUp className="w-3 h-3 mr-1" />
+                    ) : (
+                      <ArrowDown className="w-3 h-3 mr-1" />
+                    )
+                  ) : (
+                    <DollarSign className="w-3 h-3 mr-1" />
+                  )}
+                  Giá
                 </button>
-              )}
-            </div>
+
+                <button
+                  onClick={() => toggleSort("createdAt")}
+                  className={`flex items-center px-3 py-2 rounded-lg transition-all duration-200 text-xs font-medium ${
+                    sortBy === "createdAt"
+                      ? "bg-blue-100 text-blue-700 shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                  title="Sắp xếp theo ngày"
+                >
+                  {sortBy === "createdAt" ? (
+                    sortOrder === "asc" ? (
+                      <ArrowUp className="w-3 h-3 mr-1" />
+                    ) : (
+                      <ArrowDown className="w-3 h-3 mr-1" />
+                    )
+                  ) : (
+                    <Calendar className="w-3 h-3 mr-1" />
+                  )}
+                  Ngày
+                </button>
+
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className={`flex items-center p-2 rounded-lg transition-all duration-200 ${
+                    isRefreshing
+                      ? "text-gray-400 cursor-not-allowed"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-indigo-600"
+                  }`}
+                  title="Làm mới dữ liệu"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
+                </button>
+
+                {(searchTerm || sortBy) && (
+                  <button
+                    onClick={clearFilters}
+                    className="flex items-center p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                    title="Xóa bộ lọc"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
 
             {/* Add Course Button */}
             <Link
@@ -319,33 +308,34 @@ const CoursePage: React.FC = () => {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+       <div className="bg-white overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-gradient-to-r from-indigo-50 to-blue-50">
                 <tr>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-12">
                     STT
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ID
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Hình ảnh
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Tên khóa học
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Giảng viên
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Giá
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                   <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Danh Mục
+                  </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Ngày tạo
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Thao tác
                   </th>
                 </tr>
@@ -355,15 +345,12 @@ const CoursePage: React.FC = () => {
                   sortedCourses.map((course, index) => (
                     <tr
                       key={course.id}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                      onDoubleClick={() => handleCourseDoubleClick(course)} // Added double-click handler
+                      className={`transition-all duration-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-gray-25' : ''}`}
                     >
                       <td className="px-6 py-4 text-sm text-gray-900 text-center font-medium">
                         {index + 1}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 text-center">
-                        {course.id}
-                      </td>
+                    
                       <td className="px-6 py-4">
                         <CourseThumbnail
                           thumbnailUrl={course.thumbnailUrl}
@@ -378,21 +365,38 @@ const CoursePage: React.FC = () => {
                           {course.title}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 text-center">
+                      <td className="px-6 py-4 text-sm text-gray-600 text-center">
                         {course.instructor?.fullName || "N/A"}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 text-center font-medium">
-                        {course.price
-                          ? `${course.price.toLocaleString("vi-VN")} VNĐ`
-                          : "Miễn phí"}
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                          {course.price
+                            ? `${course.price.toLocaleString("vi-VN")} VNĐ`
+                            : "Miễn phí"}
+                        </span>
+                      </td>
+                         <td className="px-6 py-4 text-sm text-gray-900 text-center font-medium">
+                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                          {course.price
+                            ? `${course.category}`
+                            : "Miễn phí"}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 text-center">
                         {new Date(course.createdAt).toLocaleDateString("vi-VN")}
                       </td>
                       <td className="px-6 py-4 flex justify-center items-center space-x-2">
+                        {/* Eye icon button */}
+                        <button
+                          onClick={() => handleViewContents(course)}
+                          className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-50 transition-all duration-200 hover:scale-105"
+                          title="Xem danh sách nội dung"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                         <Link
                           to={`/add-content-course/${course.id}`}
-                          className="text-blue-600 hover:text-blue-900 p-2 rounded hover:bg-blue-50 transition-colors"
+                          className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200 hover:scale-105"
                           title="Thêm nội dung cho khóa học"
                         >
                           <PlusCircle className="w-4 h-4" />
@@ -401,7 +405,7 @@ const CoursePage: React.FC = () => {
                           onClick={() =>
                             console.log(`Delete course ${course.id}`)
                           }
-                          className="text-red-600 hover:text-red-900 p-2 rounded hover:bg-red-50 transition-colors"
+                          className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-all duration-200 hover:scale-105"
                           title="Xóa khóa học"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -433,8 +437,8 @@ const CoursePage: React.FC = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 {/* Info Section */}
                 <div className="text-sm text-gray-700">
-                  Display {Math.min(currentPage * pageSize + 1, totalElements)} -{" "}
-                  {Math.min((currentPage + 1) * pageSize, totalElements)}/
+                  Display {Math.min(currentPage * pageSize + 1, totalElements)}{" "}
+                  - {Math.min((currentPage + 1) * pageSize, totalElements)}/
                   {totalElements} in courses
                 </div>
 

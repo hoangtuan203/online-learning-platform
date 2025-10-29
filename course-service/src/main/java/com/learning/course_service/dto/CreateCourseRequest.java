@@ -15,4 +15,5 @@ public class CreateCourseRequest {
     private String description;
     private Long instructorId;
     private Float price;
+    private String category;
 }

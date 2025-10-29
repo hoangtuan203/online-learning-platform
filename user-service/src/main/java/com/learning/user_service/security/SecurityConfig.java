@@ -32,7 +32,9 @@ public class SecurityConfig {
 
     private final String[] PUBLIC_ENDPOINTS = {
             "/users/login",
+            "/users/refresh",
             "/users/introspect",
+            "/users/create",
             "/graphql"
     };
 

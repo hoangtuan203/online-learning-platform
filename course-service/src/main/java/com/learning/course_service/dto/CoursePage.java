@@ -14,8 +14,8 @@ import java.util.Optional;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CoursePage {
-    private List<Course> content;  // List courses trong page hiện tại
-    private long totalElements;    // Tổng số courses
-    private int totalPages;        // Tổng số page
-    private int currentPage;       // Page hiện tại
+    private List<Course> content;
+    private long totalElements;
+    private int totalPages;
+    private int currentPage;
 }

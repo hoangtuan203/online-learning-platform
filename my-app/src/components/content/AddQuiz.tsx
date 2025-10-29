@@ -12,8 +12,6 @@ const CLOUDINARY_CLOUD_NAME =
   import.meta.env.VITE_CLOUDINARY_UPLOAD_NAME || "dm1alq68q";
 const UPLOAD_PRESET =
   import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "ml_default";
-console.log("Cloudinary Cloud Name:", CLOUDINARY_CLOUD_NAME);
-console.log("Cloudinary Upload Preset:", UPLOAD_PRESET);
 
 interface AddQuizProps {
   courseId: string;

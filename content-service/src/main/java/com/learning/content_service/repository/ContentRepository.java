@@ -8,12 +8,14 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 
 @Repository
 public interface ContentRepository extends ReactiveMongoRepository<Content, String> {
 
-
-    Flux<Content> findByCourseId(String courseId);
+    @Query("{'course_id': ?0}")
+    Flux<Content> findByCourseId(Long courseId);
 
 
     Flux<Content> findByCourseIdAndType(String courseId, ContentType type);
@@ -36,4 +38,6 @@ public interface ContentRepository extends ReactiveMongoRepository<Content, Stri
 
     @Query("{ 'createdAt': { $gte: ?0, $lte: ?1 } }")
     Flux<Content> findByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
+    List<Content> courseId(Long courseId);
 }

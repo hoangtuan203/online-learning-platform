@@ -16,6 +16,7 @@ public class CourseDTO {
     String description;
     String price;
     String thumbnailUrl;
+    String category;
     Long instructorId;
     LocalDateTime createdAt;
 }

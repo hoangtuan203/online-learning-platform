@@ -18,6 +18,15 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+  cache:
+    type: redis
+    redis:
+      time-to-live: 30000
+
 server:
   port: 8082
   servlet:
@@ -35,6 +44,9 @@ cloudinary:
   cloud_name: dm1alq68q
   api_key: 392714169722963
   api_secret: 78opY4-nD40-VZbYTqDsU_tDPMc
+
+
+
 
 logging:
   level:

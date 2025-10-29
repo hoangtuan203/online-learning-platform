@@ -2,6 +2,9 @@ export interface LoginRequest {
   username: string;
   password: string;
 }
+export interface RefreshRequest {
+  token: string;
+}
 
 export interface User {
   id: string;
@@ -16,8 +19,9 @@ export interface User {
 
 export interface AuthResponse {
   accessToken: string;
-  refreshToken: string;
-  user: User;
+  user?: User;
+  authenticated: boolean;
+  expiryTime?: string;
 }
 
 export interface UserPage {

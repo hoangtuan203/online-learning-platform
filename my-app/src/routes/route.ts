@@ -6,6 +6,8 @@ import Dashboard from "../pages/admin/Dashboard";
 import UserPage from "../pages/admin/UserPage";
 import CourseDetail from "../pages/client/DetailCourse";
 import Home from "../pages/client/Home";
+import LearningPage from "../pages/client/LearningPage";
+import ListCourses from "../pages/client/ListCourses";
 import Login from "../pages/client/Login";
 import Register from "../pages/client/Register";
 
@@ -17,7 +19,9 @@ const publicRoutes = [
   { path: "/list-users", component: UserPage, layout: AdminLayout},
   { path: "/list-courses", component: CoursePage, layout: AdminLayout},
   { path: "/add-content-course/:courseId", component: AddContentPage, layout: AdminLayout},
-  { path: "/course/1/detail-course", component: CourseDetail, layout: DefaultLayout},
+  { path: "/courses/detail/:id", component: CourseDetail, layout: DefaultLayout},
+  { path: "/courses", component: ListCourses, layout: DefaultLayout},
+  { path: "/course/learning/:id", component: LearningPage, layout: DefaultLayout},
 
 ];
 

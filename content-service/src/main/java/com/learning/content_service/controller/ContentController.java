@@ -140,24 +140,7 @@ public class ContentController {
                 });
     }
 
-    @GetMapping("/course/{courseId}")
-    public Mono<ResponseEntity<List<ContentResponse>>> getContentsByCourseId(
-            @PathVariable String courseId) {
 
-        return Mono.just(courseId)
-                .doOnNext(id -> log.info("Fetching contents for course id = {}", id))
-                .flatMapMany(contentService::getContentsByCourseId)
-                .map(this::mapToResponse)
-                .collectList()
-                .map(ResponseEntity::ok)
-                .switchIfEmpty(Mono.just(ResponseEntity.ok(List.of())))
-                .onErrorResume(error -> {
-                    log.error("Error fetching contents for course id = {}: {}", courseId, error.getMessage());
-                    return Mono.just(ResponseEntity
-                            .status(HttpStatus.NOT_FOUND)
-                            .body(List.of()));
-                });
-    }
 
     @PutMapping("/{contentId}")
     public Mono<ResponseEntity<ContentResponse>> updateContent(
@@ -212,6 +195,31 @@ public class ContentController {
                     return Mono.just(ResponseEntity
                             .status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .build());
+                });
+    }
+
+    @GetMapping("/course/{courseId}")
+    public Mono<ResponseEntity<List<ContentResponse>>> getContentsByCourseId(
+            @PathVariable String courseId) {
+
+        log.info("Controller: Fetching contents for courseId={}", courseId);
+
+        if (courseId == null || courseId.trim().isEmpty()) {
+            log.error("Controller: Invalid courseId: {}", courseId);
+            return Mono.just(ResponseEntity.badRequest().body(List.of()));
+        }
+
+        return contentService.getContentsByCourseId(courseId)
+                .collectList()
+                .map(ResponseEntity::ok)
+                .switchIfEmpty(Mono.just(ResponseEntity.ok(List.of())))  // Empty -> empty list
+                .doOnSuccess(response -> log.info("Controller: Fetched {} contents for courseId={}",
+                        response.getBody().size(), courseId))
+                .onErrorResume(error -> {
+                    log.error("Controller: Error fetching contents for courseId={}: {}", courseId, error.getMessage(), error);
+                    return Mono.just(ResponseEntity
+                            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(List.of()));  // Return empty on error
                 });
     }
 }

@@ -1,50 +1,88 @@
+// components/cards/CourseCard.tsx - Updated with level badge on top-right of thumbnail
 import { Link } from "react-router-dom";
-
-export interface CourseCardProps {
-  title: string;
-  category: string;
-  level: string;
-  hours: number;
-  lessons: number;
-  author: string;
-  image: string;
-}
+import type { CourseCardProps } from "../../types/Course";  // Import from types
 
 export function CourseCard(props: CourseCardProps) {
+  const { 
+    id,
+    title, 
+    category = "Chưa có danh mục", 
+    author, 
+    thumbnailUrl: image = "/default-image.png",  // Fallback if null
+    price,
+    hours,
+    lessons,
+    level,
+    rating 
+  } = props;
+
+
+  const formattedPrice = price ? `${price.toLocaleString("vi-VN")} VND` : "Miễn phí";
+  const authorName = props.author;
+
   return (
     <Link
-      to="/courses"
-      className="group relative flex flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:shadow-lg"
+      to={`/courses/detail/${id}`}  // Dynamic link using id from Course
+      className="group relative flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      aria-label={`Khóa học: ${title} bởi ${authorName}`}
     >
-      <div className="relative aspect-[16/9] overflow-hidden">
+      {/* Image Section - Simplified with subtle hover scale */}
+      <div className="relative  overflow-hidden">  {/* Adjusted aspect for better mobile */}
         <img
-          src={props.image}
-          alt={props.title}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          src={image}
+          alt={title}
+          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-        <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-700 backdrop-blur">
-          {props.category}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />  {/* Softer gradient */}
+        {/* Category Badge - Top-left */}
+        <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/95 px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur-sm">
+          {category}
+        </div>
+        {/* Level Badge - Top-right, similar to category */}
+        <div className="absolute right-3 top-3 inline-flex items-center rounded-full bg-violet-500/90 px-2 py-0.5 text-xs font-medium text-white shadow-sm backdrop-blur-sm">
+          {level}
         </div>
       </div>
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        <h3 className="line-clamp-2 text-base font-semibold text-slate-900">{props.title}</h3>
-        <div className="mt-auto flex items-center justify-between text-xs text-slate-600">
-          <span className="inline-flex items-center gap-1">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-indigo-600">
-              <path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+
+      {/* Content Section - Cleaner layout with better spacing */}
+      <div className="flex flex-1 flex-col p-4">  {/* Reduced padding for compact feel */}
+        {/* Title - Single line clamp for simplicity */}
+        <h3 className="line-clamp-1 text-sm font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+          {title}
+        </h3>
+
+        {/* Meta Info - Compact row with icons (only hours/lessons now) */}
+        <div className="flex items-center justify-start text-xs text-gray-500 mb-2">  {/* justify-start to left-align */}
+          <span className="flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-indigo-500">
+              <path d="M12 8v5l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {props.hours} giờ • {props.lessons} bài
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-violet-600">
-              <path d="M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0 -16 0" stroke="currentColor" strokeWidth="2" />
-            </svg>
-            {props.level}
+            {hours}h • {lessons} bài
           </span>
         </div>
-        <div className="mt-1 text-xs text-slate-500">Giảng viên: {props.author}</div>
+
+        {/* Author - Subtle and compact */}
+        <div className="text-xs text-gray-500 mb-2 truncate">Giảng viên: {authorName}</div>
+
+        {/* Price and Rating - Combined in one row (flex justify-between) */}
+        <div className="flex items-center justify-between text-sm">
+          {/* Price */}
+          <div className="font-bold">
+            {formattedPrice !== "Miễn phí" ? (
+              <span className="text-green-600">{formattedPrice}</span>
+            ) : (
+              <span className="text-gray-400">Miễn phí</span>
+            )}
+          </div>
+          {/* Rating - Aligned to right */}
+          {rating && (
+            <div className="flex items-center gap-1 text-xs text-amber-500">
+              <span className="text-yellow-500">★ ★ ★ ★ ☆</span>
+              <span className="text-gray-500 ml-1">{rating.toFixed(1)}</span>
+            </div>
+          )}
+        </div>
       </div>
     </Link>
   );

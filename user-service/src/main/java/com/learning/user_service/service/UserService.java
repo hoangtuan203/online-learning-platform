@@ -1,16 +1,19 @@
 package com.learning.user_service.service;
 
 import com.learning.user_service.dto.*;
+import com.learning.user_service.entity.InvalidatedToken;
 import com.learning.user_service.entity.User;
 import com.learning.user_service.exception.AppException;
 import com.learning.user_service.exception.ErrorCode;
 import com.learning.user_service.mapper.UserMapper;
+import com.learning.user_service.repository.InvalidatedTokenRepository;
 import com.learning.user_service.repository.UserRepository;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.nimbusds.openid.connect.sdk.AuthenticationResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +48,7 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
+    private final InvalidatedTokenRepository invalidatedTokenRepository;
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -61,11 +65,12 @@ public class UserService {
     private CloudinaryService cloudinaryService;
 
     public UserService(UserRepository userRepository, UserMapper userMapper, CloudinaryService cloudinaryService,
-                       PasswordEncoder passwordEncoder){
+                       PasswordEncoder passwordEncoder, InvalidatedTokenRepository invalidatedTokenRepository) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.cloudinaryService = cloudinaryService;
         this.passwordEncoder = passwordEncoder;
+        this.invalidatedTokenRepository = invalidatedTokenRepository;
     }
 
     public record TokenInfo(String token, Date expiryDate) {
@@ -150,7 +155,6 @@ public class UserService {
     }
 
 
-
     private String generateToken(User user) {
         if (user == null || user.getUsername() == null || user.getUsername().trim().isEmpty()) {
             log.error("User null hoặc username rỗng");
@@ -207,6 +211,24 @@ public class UserService {
             log.error("Unexpected error tạo token cho user: {}", user.getUsername(), e);
             throw new RuntimeException("Lỗi bất ngờ khi tạo token", e);
         }
+    }
+
+    public AuthResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException {
+        var signedJWT = verifyToken(request.getToken(), true);
+        var jit = signedJWT.getJWTClaimsSet().getJWTID();
+        var expireTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+
+        InvalidatedToken invalidatedToken = InvalidatedToken
+                .builder().id(jit).expiryTime(expireTime).build();
+        invalidatedTokenRepository.save(invalidatedToken);
+
+        var username = signedJWT.getJWTClaimsSet().getSubject();
+        var user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        var tokenRefresh = generateToken(user);
+        return AuthResponse.builder().accessToken(tokenRefresh).authenticated(true).build();
+
     }
 
 

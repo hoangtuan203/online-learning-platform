@@ -28,9 +28,14 @@ const Login: React.FC = () => {
       
       toast.success("Đăng nhập thành công!");
       
-      navigate("/dashboard"); // Điều chỉnh route nếu cần
+      if (response.user?.role === "ADMIN") {
+        navigate("/dashboard");
+      } else if (response.user?.role === "STUDENT") {
+        navigate("/");
+      } else {
+        navigate("/"); 
+      }
     } catch (error) {
-      // Xử lý lỗi từ service
       console.error("Login failed:", error);
       toast.error(error instanceof Error ? error.message : "Lỗi đăng nhập không xác định");
     } finally {
@@ -39,7 +44,6 @@ const Login: React.FC = () => {
   };
 
   const handleGoogleLogin = () => {
-    // TODO: Implement Google login
     console.log('Google login clicked');
   };
 
@@ -64,7 +68,7 @@ const Login: React.FC = () => {
             <div>
             
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /> {/* Thay icon */}
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-black" /> {/* Thay icon */}
                 <input
                   id="username"
                   name="username"

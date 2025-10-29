@@ -58,7 +58,6 @@ public class UserController {
         }
     }
 
-
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
@@ -76,6 +75,11 @@ public class UserController {
         }
     }
 
+    @PostMapping("/refresh")
+    ApiResponse<AuthResponse> authenticate(@RequestBody RefreshRequest request) throws ParseException, JOSEException {
+        var result = userService.refreshToken(request);
+        return ApiResponse.<AuthResponse>builder().result(result).build();
+    }
     @PostMapping("/introspect")
     ApiResponse<IntrospectResponse> authenticate(@RequestBody IntrospectRequest request) throws ParseException, JOSEException {
         var result = userService.introspect(request);

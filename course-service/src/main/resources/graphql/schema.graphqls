@@ -11,6 +11,7 @@ type Course {
     instructor: User!  # Nested với User type từ shared schema
     price: Float!
     thumbnailUrl: String
+    category: String
     createdAt: String!
 }
 
@@ -30,7 +31,7 @@ input CreateCourseInput {
 }
 type Query {
     findAllCourses(page: Int = 0, size: Int = 10): CoursePage!
-    searchCourses(title: String!): [Course!]!
+    searchCourses(title: String, category: String, page: Int = 0, size: Int = 10): CoursePage!
     getCourseById(id: ID!): Course
     instructorCourses(instructorId: ID!): [Course!]!
 }

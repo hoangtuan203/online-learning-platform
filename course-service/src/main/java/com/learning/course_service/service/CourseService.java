@@ -10,6 +10,7 @@ import com.learning.course_service.repository.CourseRepository;
 import com.learning.course_service.repository.InstructorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,8 +45,9 @@ public class CourseService {
         return null;
     }
 
-    public Course createCourse(CreateCourseRequest request, MultipartFile thumbnail ) {
+    public Course createCourse(CreateCourseRequest request, MultipartFile thumbnail) {
         try {
+            log.info("instructor id :" + request.getInstructorId());
             if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
                 throw new IllegalArgumentException("Title không được rỗng");
             }
@@ -70,9 +72,12 @@ public class CourseService {
             }
 
             Instructor instructor = instructorRepository.findByUserId(request.getInstructorId()).orElse(null);
+            log.info("instructor : " + instructor);
             if (instructor == null) {
+
                 instructor = new Instructor();
                 instructor.setUserId(request.getInstructorId());
+                instructor.setCreatedAt(LocalDateTime.now());
                 instructor.setCreatedAt(LocalDateTime.now());
             }
 
@@ -80,9 +85,7 @@ public class CourseService {
             log.info(userDTO.getName());
             instructor.setFullName(userDTO.getName());
             instructor.setEmail(userDTO.getEmail());
-
             instructor = instructorRepository.save(instructor);
-
             BigDecimal priceValue = BigDecimal.valueOf(priceFloat);
 
             Course course = new Course();
@@ -90,6 +93,7 @@ public class CourseService {
             course.setDescription(request.getDescription());
             course.setInstructor(instructor);
             course.setPrice(priceValue);
+            course.setCategory(request.getCategory());
             course.setCreatedAt(LocalDateTime.now());
 
             if (thumbnail != null && !thumbnail.isEmpty()) {
@@ -114,10 +118,11 @@ public class CourseService {
         }
     }
 
+    @Cacheable(value = "courses", key = "#page + ':' + #size")
+
     public CoursePage findAllCourses(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Course> coursePage = courseRepository.findAll(pageable);
-
         List<Course> content = coursePage.getContent().stream()
                 .peek(this::populateInstructor)
                 .toList();
@@ -127,13 +132,17 @@ public class CourseService {
         dto.setTotalElements(coursePage.getTotalElements());
         dto.setTotalPages(coursePage.getTotalPages());
         dto.setCurrentPage(coursePage.getNumber());
-
         return dto;
     }
 
+    @Cacheable(value = "userDTOs", key = "#instructorId")
+    public UserDTO getCachedUserDTO(Long instructorId, String token) {
+        return userClient.getUserById(instructorId, token);
+    }
+
     private void populateInstructor(Course course) {
-        if (course.getInstructor() != null) {
-            // Lấy từ cache Instructor
+        if (course.getInstructor() != null && course.getInstructor().getId() != null) {
+
             UserDTO userDTO = new UserDTO();
             userDTO.setId(course.getInstructor().getUserId());
             userDTO.setUsername(course.getInstructor().getUsername());
@@ -141,10 +150,14 @@ public class CourseService {
             userDTO.setEmail(course.getInstructor().getEmail());
             course.setInstructorDTO(userDTO);
         } else {
-            String token = getTokenFromContext();
-            UserDTO userDTO = userClient.getUserById(course.getInstructor().getId(), token);
-            if (userDTO != null) {
-                course.setInstructorDTO(userDTO);
+
+            Long instructorId = course.getInstructor().getId();
+            if (instructorId != null) {
+                String token = getTokenFromContext();
+                UserDTO userDTO = getCachedUserDTO(instructorId, token);
+                if (userDTO != null) {
+                    course.setInstructorDTO(userDTO);
+                }
             }
         }
     }
@@ -160,5 +173,21 @@ public class CourseService {
 
     public List<Course> findCoursesByInstructor(Long instructorId) {
         return courseRepository.findByInstructorId(instructorId);
+    }
+
+    @Cacheable(value = "searchCourses", key = "#title + ':' + #category + ':' + #page + ':' + #size")
+    public CoursePage searchCourses(String title, String category, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Course> coursePage = courseRepository.searchCourses(title, category, pageable);
+        List<Course> content = coursePage.getContent().stream()
+                .peek(this::populateInstructor)  // Populate UserDTO cho instructor
+                .toList();
+
+        CoursePage dto = new CoursePage();
+        dto.setContent(content);
+        dto.setTotalElements(coursePage.getTotalElements());
+        dto.setTotalPages(coursePage.getTotalPages());
+        dto.setCurrentPage(coursePage.getNumber());
+        return dto;
     }
 }

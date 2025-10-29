@@ -4,10 +4,12 @@ import com.learning.course_service.dto.CoursePage;
 import com.learning.course_service.dto.CreateCourseRequest;
 import com.learning.course_service.entity.Course;
 import com.learning.course_service.service.CourseService;
+import graphql.schema.DataFetchingEnvironment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
 import java.util.List;
@@ -22,18 +24,22 @@ public class CourseGraphQLController {
     public CoursePage findAllCourses(@Argument Integer page, @Argument Integer size) {
         return courseService.findAllCourses(page != null ? page : 0, size != null ? size : 5);
     }
-    @QueryMapping
-    public List<Course> searchCourses(@Argument String title) {
-        return courseService.searchCourses(title);
-    }
+
 
     @QueryMapping
     public Course getCourseById(@Argument Long id) {
         return courseService.getCourseById(id);
     }
 
-    @QueryMapping
-    public List<Course> instructorCourses(@Argument Long instructorId) {
-        return courseService.findCoursesByInstructor(instructorId);
+
+    @SchemaMapping(typeName = "Query", field = "searchCourses")
+    public CoursePage searchCourses(@Argument String title,
+                                    @Argument String category,
+                                    @Argument Integer page,
+                                    @Argument Integer size,
+                                    DataFetchingEnvironment env) {
+        page = (page != null) ? page : 0;
+        size = (size != null) ? size : 10;
+        return courseService.searchCourses(title, category, page, size);
     }
 }

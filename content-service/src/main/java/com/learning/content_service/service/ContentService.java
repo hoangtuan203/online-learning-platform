@@ -1,34 +1,34 @@
 package com.learning.content_service.service;
 
 import com.cloudinary.Cloudinary;
-import com.cloudinary.Transformation;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.content_service.client.CourseClient;
+import com.learning.content_service.dto.ContentResponse;
 import com.learning.content_service.dto.CreateContentRequest;
 import com.learning.content_service.entity.Content;
 import com.learning.content_service.entity.ContentType;
 import com.learning.content_service.entity.LevelType;
 import com.learning.content_service.entity.QuizQuestion;
 import com.learning.content_service.repository.ContentRepository;
-import jakarta.ws.rs.core.Application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.asm.TypeReference;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import org.springframework.web.context.request.ServletRequestAttributes;
 import reactor.core.scheduler.Schedulers;
-
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -220,13 +220,6 @@ public class ContentService {
                 .doOnError(e -> log.error("Error fetching content: {}", e.getMessage()));
     }
 
-    public Flux<Content> getContentsByCourseId(String courseId) {
-        log.info("Fetching contents for course id = {}", courseId);
-
-        return contentRepository.findByCourseId(courseId)
-                .doOnError(e -> log.error("Error fetching contents: {}", e.getMessage()));
-    }
-
     public Mono<Content> updateContent(String contentId, CreateContentRequest request) {
         log.info("Updating content with id = {}", contentId);
 
@@ -273,14 +266,14 @@ public class ContentService {
     }
 
 
-    public Mono<Integer> getTotalDurationByCourseId(String courseId) {
+    public Mono<Integer> getTotalDurationByCourseId(Long courseId) {
         log.info("Calculating total duration for course id = {}", courseId);
 
         return contentRepository.findByCourseId(courseId)
                 .map(Content::getDuration)
                 .reduce(0, Integer::sum)
                 .doOnSuccess(total -> log.info("Total duration for course: {} minutes", total));
-    }
+    }   
 
 
     public Flux<Content> getContentsByTypeAndCourseId(String courseId, ContentType type) {
@@ -311,15 +304,91 @@ public class ContentService {
         }
     }
 
-//    public String generateThumbnailFromVideo(String videoPublicId, int second = 1, int width = 320, int height = 180) {
-//        String transformation = String.format("so_%d,c_thumb,w_%d,h_%d,c_fill", second, width, height);
-//        return cloudinary.url()
-//                .transformation(new Transformation().rawTransformation(transformation))
-//                .generate(videoPublicId);
-//    }
 
-    public String getPublicId(Map uploadResult) {
-        return (String) uploadResult.get("public_id");
+    public Flux<ContentResponse> getContentsByCourseId(String courseId) {
+        log.info("Service: Fetching contents for courseId={}", courseId);
+
+        if (courseId == null || courseId.trim().isEmpty()) {
+            log.error("Service: Invalid courseId provided: {}", courseId);
+            return Flux.empty(); // Return empty flux cho invalid input
+        }
+
+        try {
+            Long courseIdLong = Long.valueOf(courseId.trim());
+
+            return contentRepository.findByCourseId(courseIdLong)
+                    .doOnNext(content -> log.debug("Raw tags from DB for ID={}: '{}'", content.getId(), content.getTags()))
+                    .map(this::mapToContentResponse)
+                    .doOnNext(response -> log.debug("Service: Mapped response for content ID={}", response.getId()))
+                    .doOnComplete(() -> log.info("Service: Completed fetching contents for courseId={}", courseId))
+                    .doOnError(e -> log.error("Service: Error fetching contents for courseId={}: {}", courseId, e.getMessage(), e));
+        } catch (NumberFormatException e) {
+            log.error("Service: Invalid courseId format: {} - {}", courseId, e.getMessage());
+            return Flux.empty();
+        }
+    }
+
+    private ContentResponse mapToContentResponse(Content content) {
+        List<String> tagsList = new ArrayList<>(); // Default empty list
+
+        try {
+            if (content.getTags() != null && !content.getTags().trim().isEmpty()) {
+                ObjectMapper mapper = new ObjectMapper();
+                try {
+                    JsonNode node = mapper.readTree(content.getTags());
+                    if (node.isArray()) {
+                        for (JsonNode elem : node) {
+                            tagsList.add(elem.asText());
+                        }
+                    }
+                    log.debug("Parsed tags for ID={}: {}", content.getId(), tagsList);
+                } catch (JsonProcessingException e) {
+                    log.warn("JSON parse failed for ID={}: '{}', fallback to comma split: {}",
+                            content.getId(), content.getTags(), e.getMessage());
+                    tagsList = Arrays.stream(content.getTags().split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .collect(Collectors.toList());
+                    log.debug("Fallback tags for ID={}: {}", content.getId(), tagsList);
+                }
+            } else {
+                log.debug("No tags for ID={}", content.getId());
+            }
+
+            return ContentResponse.builder()
+                    .id(content.getId())
+                    .title(content.getTitle())
+                    .description(content.getDescription())
+                    .type(content.getType() != null ? content.getType().toString() : null)
+                    .url(content.getUrl())
+                    .duration(content.getDuration())
+                    .courseId(content.getCourseId() != null ? String.valueOf(content.getCourseId()) : null)
+                    .thumbnail(content.getThumbnail())
+                    .level(content.getLevel() != null ? content.getLevel().toString() : null)
+                    .tags(tagsList)  // Parsed đầy đủ
+                    .questions(content.getType() == ContentType.QUIZ ? content.getQuestions() : List.of())
+                    .createdAt(content.getCreatedAt())
+                    .updatedAt(content.getUpdatedAt())
+                    .error(null)
+                    .build();
+        } catch (Exception e) {
+            log.error("Full mapping error for ID={}: {}", content.getId(), e.getMessage(), e);
+            return ContentResponse.builder()
+                    .id(content.getId())
+                    .title(content.getTitle() != null ? content.getTitle() : "")
+                    .description(content.getDescription() != null ? content.getDescription() : "")
+                    .type(content.getType() != null ? content.getType().toString() : null)
+                    .url(content.getUrl())
+                    .duration(content.getDuration())
+                    .courseId(content.getCourseId() != null ? String.valueOf(content.getCourseId()) : null)
+                    .thumbnail(content.getThumbnail())
+                    .level(content.getLevel() != null ? content.getLevel().toString() : null)
+                    .tags(List.of())  // Empty on error
+                    .createdAt(content.getCreatedAt())
+                    .updatedAt(content.getUpdatedAt())
+                    .error("Lỗi mapping dữ liệu: " + e.getMessage())
+                    .build();
+        }
     }
 
 }

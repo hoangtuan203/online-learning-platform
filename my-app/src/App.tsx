@@ -21,9 +21,6 @@ function App() {
       script.async = true;
       script.crossOrigin = 'anonymous';  // Tùy chọn cho CORS nếu cần
       script.onload = () => {
-        console.log('Cloudinary Upload Widget loaded successfully');
-        // Optional: Set global cloud name nếu cần
-        // window.cloudinary.setCloudName('your_cloud_name');
       };
       script.onerror = () => {
         console.error('Failed to load Cloudinary Upload Widget');

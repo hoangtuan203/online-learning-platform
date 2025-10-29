@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "instructor")
 public class Course {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,7 +34,10 @@ public class Course {
     private Instructor instructor;
 
     @Column(precision = 10, scale = 2)
-    private BigDecimal price = BigDecimal.ZERO;  // SỬA: Thay Double bằng BigDecimal
+    private BigDecimal price = BigDecimal.ZERO;
+
+    @Column(name = "category", length = 500)
+    private String category;
 
     @Column(name = "thumbnail_url", length = 500)
     private String thumbnailUrl;

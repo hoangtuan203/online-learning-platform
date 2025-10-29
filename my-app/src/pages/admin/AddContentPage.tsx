@@ -1,6 +1,6 @@
 import React, { useState, type Dispatch, type SetStateAction } from "react";
-import { FileText, HelpCircle, Film, AlertCircle } from "lucide-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { FileText, HelpCircle, Film, AlertCircle, ArrowLeft } from "lucide-react"; // Added ArrowLeft icon
+import { useParams, useNavigate } from "react-router-dom"; 
 import { AddVideo } from "../../components/content/AddVideo";
 import { AddDocument } from "../../components/content/AddDocument";
 import { AddQuiz } from "../../components/content/AddQuiz";
@@ -27,6 +27,11 @@ const AddContentPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("video");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // New: Handle back navigation
+  const handleBack = () => {
+    navigate("/list-courses");
+  };
 
   const handleVideoSuccess = async (response: OperationResponse) => {
     if (response.success) {
@@ -65,7 +70,6 @@ const AddContentPage: React.FC = () => {
     }
   };
 
-
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setErrors({});
@@ -74,6 +78,17 @@ const AddContentPage: React.FC = () => {
   return (
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="max-w-5xl mx-auto">
+        {/* New: Back button in top-left */}
+        <div className="mb-6 flex items-center">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 shadow-sm"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Quay lại</span>
+          </button>
+        </div>
+
         {errors.api && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center">
             <AlertCircle className="w-5 h-5 mr-2" />

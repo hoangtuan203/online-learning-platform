@@ -28,7 +28,6 @@ const HeaderAdmin: React.FC<HeaderProps & { onToggle?: () => void }> = ({
     navigate("/login");
   };
 
-
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : "A";
 
   return (
