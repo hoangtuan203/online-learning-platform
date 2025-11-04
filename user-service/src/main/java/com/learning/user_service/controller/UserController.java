@@ -124,5 +124,11 @@ public class UserController {
         }
     }
 
+    @GetMapping("/{userId}")
+    public ResponseEntity<?> findUserById(@PathVariable Long userId) {
+        var result = userService.getInfoUserById(userId);
+        return ResponseEntity.ok(result);
+    }
+
 
 }

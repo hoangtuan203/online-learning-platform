@@ -2,6 +2,7 @@ import axios from "axios";
 import httpRequest from "../utils/httpRequest";
 import { getAuthHeaders } from "../utils/auth";
 import type { EnrollmentRequest, EnrollResponse } from "../types/Enrollment";
+import type { AnswerRequest, AnswerResponse, QAResponse, QuestionRequest, QuestionResponse } from "../types/QA";
 
 interface EnrollmentStatus {
     status: string;
@@ -112,12 +113,13 @@ export class EnrollService {
         }
 
         try {
-            // Merge authHeaders with the config to include params
+            console.log("Checking enrollment for request:", request);
             const config = {
                 ...authHeaders,
                 params: {
-                    courseId: request.courseId,
-                    userId: request.userId
+                    userId: request.userId,
+                    courseId: request.courseId
+
                 }
             };
             const response = await httpRequest.get(
@@ -141,13 +143,6 @@ export class EnrollService {
         }
     }
 
-    /**
-     * Update progress for a specific content item in the enrollment.
-     * 
-     * @param enrollmentId The ID of the enrollment.
-     * @param request The update progress request.
-     * @returns Promise<ProgressResponse> The updated progress summary.
-     */
     async updateProgress(enrollmentId: number, request: UpdateProgressRequest): Promise<ProgressResponse> {
         const authHeaders = getAuthHeaders();
         if (!authHeaders) {
@@ -361,7 +356,386 @@ export class EnrollService {
         }
     }
 
-    // Public method để gọi từ component
+
+    async getQAByContentInCourse(courseId: number, contentId: string): Promise<QAResponse[]> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để xem Q&A');
+        }
+
+        console.log("Fetching Q&A for courseId:", courseId, "contentId:", contentId);
+
+        try {
+            const response = await httpRequest.get(
+                `/enrollment-service/enrolls/courses/${courseId}/contents/${contentId}/qa`,
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu Q&A từ server');
+            }
+
+            const result = response.data.result || response.data;
+            console.log("Q&A response data:", result);
+
+            if (!Array.isArray(result)) {
+                throw new Error('Response không chứa danh sách Q&A');
+            }
+
+            return result.map((item: any) => ({
+                question: {
+                    id: item.question.id || 0,
+                    contentId: item.question.contentId || '',
+                    questionText: item.question.questionText || '',
+                    answered: item.question.answered || false,
+                    authorName: item.question.authorName || 'Anonymous',
+                    authorAvatar: item.question.authorAvatar || null,
+                    createdAt: item.question.createdAt || '',
+                },
+                answer: item.answer ? {
+                    id: item.answer.id || 0,
+                    questionId: item.answer.questionId || 0,
+                    answerText: item.answer.answerText || '',
+                    answeredBy: item.answer.answeredBy || 0,
+                    answererName: item.answer.answererName || 'Anonymous',
+                    createdAt: item.answer.createdAt || '',
+                } : null,
+            }));
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi lấy Q&A';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi lấy Q&A');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để xem Q&A');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền xem Q&A này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy course hoặc content');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Lấy tất cả Q&A của course (public cho tất cả học viên)
+     */
+    async getAllQAInCourse(courseId: number): Promise<QAResponse[]> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để xem Q&A');
+        }
+
+        try {
+            const response = await httpRequest.get(
+                `/enrollment-service/enrolls/courses/${courseId}/qa`,
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu Q&A từ server');
+            }
+
+            const result = response.data.result || response.data;
+            if (!Array.isArray(result)) {
+                throw new Error('Response không chứa danh sách Q&A');
+            }
+
+            return result.map((item: any) => ({
+                question: {
+                    id: item.question.id || 0,
+                    contentId: item.question.contentId || '',
+                    questionText: item.question.questionText || '',
+                    answered: item.question.answered || false,
+                    authorName: item.question.authorName || 'Anonymous',
+                    authorAvatar: item.question.authorAvatar || null,
+                    createdAt: item.question.createdAt || '',
+                },
+                answer: item.answer ? {
+                    id: item.answer.id || 0,
+                    questionId: item.answer.questionId || 0,
+                    answerText: item.answer.answerText || '',
+                    answeredBy: item.answer.answeredBy || 0,
+                    answererName: item.answer.answererName || 'Anonymous',
+                    createdAt: item.answer.createdAt || '',
+                } : null,
+            }));
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi lấy Q&A';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi lấy Q&A');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để xem Q&A');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền xem Q&A này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy course');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
+
+    // ========== APIs PRIVATE (CHO USER CỤ THỂ - NẾU CẦN) ==========
+
+    /**
+     * Lấy Q&A của một user trong content cụ thể (private)
+     */
+    async getQAByContent(enrollmentId: number, contentId: string): Promise<QAResponse[]> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để lấy Q&A theo nội dung');
+        }
+
+        console.log("Fetching Q&A for enrollmentId:", enrollmentId, "contentId:", contentId);
+
+        try {
+            const response = await httpRequest.get(
+                `/enrollment-service/enrolls/${enrollmentId}/questions/${contentId}`,
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu Q&A từ server');
+            }
+
+            const result = response.data.result || response.data;
+            console.log("Q&A response data:", result);
+
+            if (!Array.isArray(result)) {
+                throw new Error('Response không chứa danh sách Q&A');
+            }
+
+            return result.map((item: any) => ({
+                question: {
+                    id: item.question.id || 0,
+                    contentId: item.question.contentId || '',
+                    questionText: item.question.questionText || '',
+                    answered: item.question.answered || false,
+                    authorName: item.question.authorName || 'Anonymous',
+                    authorAvatar: item.question.authorAvatar || null,
+                    createdAt: item.question.createdAt || '',
+                },
+                answer: item.answer ? {
+                    id: item.answer.id || 0,
+                    questionId: item.answer.questionId || 0,
+                    answerText: item.answer.answerText || '',
+                    answeredBy: item.answer.answeredBy || 0,
+                    answererName: item.answer.answererName || 'Anonymous',
+                    createdAt: item.answer.createdAt || '',
+                } : null,
+            }));
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi lấy Q&A theo nội dung';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi lấy Q&A theo nội dung');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để lấy Q&A theo nội dung');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền lấy Q&A theo nội dung này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy enrollment hoặc nội dung');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Lấy tất cả Q&A của một user (private)
+     */
+    async getAllQA(enrollmentId: number): Promise<QAResponse[]> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để lấy tất cả Q&A');
+        }
+
+        try {
+            const response = await httpRequest.get(
+                `/enrollment-service/enrolls/${enrollmentId}/questions`,
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu Q&A từ server');
+            }
+
+            const result = response.data.result || response.data;
+            if (!Array.isArray(result)) {
+                throw new Error('Response không chứa danh sách Q&A');
+            }
+
+            return result.map((item: any) => ({
+                question: {
+                    id: item.question.id || 0,
+                    contentId: item.question.contentId || '',
+                    questionText: item.question.questionText || '',
+                    answered: item.question.answered || false,
+                    authorName: item.question.authorName || 'Anonymous',
+                    authorAvatar: item.question.authorAvatar || null,
+                    createdAt: item.question.createdAt || '',
+                },
+                answer: item.answer ? {
+                    id: item.answer.id || 0,
+                    questionId: item.answer.questionId || 0,
+                    answerText: item.answer.answerText || '',
+                    answeredBy: item.answer.answeredBy || 0,
+                    answererName: item.answer.answererName || 'Anonymous',
+                    createdAt: item.answer.createdAt || '',
+                } : null,
+            }));
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi lấy tất cả Q&A';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi lấy tất cả Q&A');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để lấy tất cả Q&A');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền lấy tất cả Q&A này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy enrollment');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
+
+    // ========== APIs TẠO/CẬP NHẬT ==========
+
+    /**
+     * Tạo câu hỏi mới
+     */
+    async addQuestion(enrollmentId: number, request: QuestionRequest): Promise<QuestionResponse> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để thêm câu hỏi');
+        }
+
+        console.log("authHeaders", authHeaders);
+
+        try {
+            const response = await httpRequest.post(
+                `/enrollment-service/enrolls/${enrollmentId}/questions`,
+                request,
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu câu hỏi từ server');
+            }
+
+            const result = response.data.result || response.data;
+            if (!result || typeof result !== 'object') {
+                throw new Error('Response không chứa thông tin câu hỏi');
+            }
+
+            return {
+                id: result.id || 0,
+                contentId: result.contentId || '',
+                questionText: result.questionText || '',
+                answered: result.answered || false,
+                authorName: result.authorName || 'Anonymous',
+                authorAvatar: result.authorAvatar || null,
+                createdAt: result.createdAt || '',
+            };
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi thêm câu hỏi';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi thêm câu hỏi');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để thêm câu hỏi');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền thêm câu hỏi này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy enrollment');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Tạo/cập nhật câu trả lời
+     */
+    async addAnswer(questionId: number, request: AnswerRequest): Promise<AnswerResponse> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để thêm câu trả lời');
+        }
+
+        try {
+            const response = await httpRequest.post(
+                `/enrollment-service/enrolls/questions/${questionId}/answers`,
+                request,
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu câu trả lời từ server');
+            }
+
+            const result = response.data.result || response.data;
+            if (!result || typeof result !== 'object') {
+                throw new Error('Response không chứa thông tin câu trả lời');
+            }
+
+            return {
+                id: result.id || 0,
+                questionId: result.questionId || 0,
+                answerText: result.answerText || '',
+                answeredBy: result.answeredBy || 0,
+                answererName: result.answererName || 'Admin',
+                createdAt: result.createdAt || '',
+            };
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi thêm câu trả lời';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi thêm câu trả lời');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để thêm câu trả lời');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền thêm câu trả lời này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy câu hỏi');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
+
+   
+
+
     public async enroll(request: EnrollmentRequest): Promise<EnrollResponse> {
         return this.enrollUser(request);
     }

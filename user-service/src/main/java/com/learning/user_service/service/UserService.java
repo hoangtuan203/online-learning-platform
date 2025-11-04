@@ -315,4 +315,13 @@ public class UserService {
         System.out.println("Returning UserPage: user=" + userResponses.size() + ", totalElements=" + userPage.getTotalElements() + ", totalPages=" + userPage.getTotalPages() + ", currentPage=" + userPage.getNumber());
         return dto;
     }
+
+    //get info user
+    public UserResponse getInfoUserById(Long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if(user != null){
+            return userMapper.toUserResponse(user);
+        }
+        return null;
+    }
 }

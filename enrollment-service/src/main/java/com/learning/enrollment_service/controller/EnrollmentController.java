@@ -1,9 +1,7 @@
 package com.learning.enrollment_service.controller;
 
 import com.learning.enrollment_service.dto.*;
-import com.learning.enrollment_service.entity.Enrollment;
-import com.learning.enrollment_service.entity.EnrollmentProgress;
-import com.learning.enrollment_service.entity.Note;
+import com.learning.enrollment_service.entity.*;
 import com.learning.enrollment_service.service.EnrollmentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+
 @Slf4j
 @RestController
 @RequestMapping("/enrolls")
@@ -34,21 +33,25 @@ public class EnrollmentController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
     }
+
     @GetMapping("/check")
     public ResponseEntity<EnrollmentStatusDTO> checkEnrollment(
             @RequestParam("userId") Long userId,
             @RequestParam("courseId") Long courseId
 
     ) {
-        EnrollmentRequest request = new EnrollmentRequest(courseId, userId);
+        log.info("request userid: {}", userId);
+
+        log.info("request courseid : {}", courseId);
+        EnrollmentRequest request = new EnrollmentRequest(userId, courseId);
         return ResponseEntity.ok(enrollmentService.checkEnrollment(request));
     }
 
     @PostMapping("/{enrollmentId}/progress")
     public ResponseEntity<?> updateProcess(@PathVariable Long enrollmentId,
-                                           @RequestBody UpdateProgressRequest request){
+                                           @RequestBody UpdateProgressRequest request) {
         try {
-            if(request.getContentItemId() == null){
+            if (request.getContentItemId() == null) {
                 return ResponseEntity.badRequest().body("Content item id is null");
             }
             Enrollment updatedEnrollment = enrollmentService.uploadEnrollment(enrollmentId, request);
@@ -167,6 +170,7 @@ public class EnrollmentController {
             return ResponseEntity.badRequest().build();
         }
     }
+
     @PutMapping("/{enrollmentId}/notes/{noteId}")
     public ResponseEntity<NoteResponse> updateNote(
             @PathVariable Long enrollmentId,
@@ -189,6 +193,7 @@ public class EnrollmentController {
             return ResponseEntity.badRequest().build();
         }
     }
+
     @DeleteMapping("/{enrollmentId}/notes/{noteId}")
     public ResponseEntity<Void> deleteNote(@PathVariable Long enrollmentId, @PathVariable Long noteId) {
         try {
@@ -199,6 +204,7 @@ public class EnrollmentController {
             return ResponseEntity.badRequest().build();
         }
     }
+
 
     @GetMapping("/{enrollmentId}/notes/filtered")
     public ResponseEntity<List<NoteResponse>> getFilteredNotes(
@@ -213,4 +219,132 @@ public class EnrollmentController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+
+    @GetMapping("/courses/{courseId}/contents/{contentId}/qa")
+    public ResponseEntity<List<QAResponse>> getQAByContentInCourse(
+            @PathVariable Long courseId,
+            @PathVariable String contentId,
+            @RequestParam(required = false) Long userId) {
+        try {
+            List<QAResponse> qaList = enrollmentService.getQAByContentInCourse(courseId, contentId, userId);
+            return ResponseEntity.ok(qaList);
+        } catch (RuntimeException e) {
+            log.error("Error getting QA for content {} in course {}: {}",
+                    contentId, courseId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+
+
+    @PostMapping("/{enrollmentId}/questions")
+    public ResponseEntity<QuestionResponse> addQuestion(
+            @PathVariable Long enrollmentId,
+            @RequestBody QuestionRequest request) {
+        try {
+            Question savedQuestion = enrollmentService.addQuestion(enrollmentId, request);
+
+            Long userId = savedQuestion.getEnrollment().getUserId();
+            String authorName = "Anonymous";
+            String authorAvatar = null;
+
+            return ResponseEntity.ok(QuestionResponse.builder()
+                    .id(savedQuestion.getId())
+                    .authorName(authorName)
+                    .authorAvatar(authorAvatar)
+                    .contentId(savedQuestion.getContentId())
+                    .questionText(savedQuestion.getQuestionText())
+                    .answered(savedQuestion.getAnswered())
+                    .createdAt(savedQuestion.getCreatedAt())
+                    .build());
+        } catch (RuntimeException e) {
+            log.error("Error adding question for enrollment {}: {}", enrollmentId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/questions/{questionId}/answers")
+    public ResponseEntity<AnswerResponse> addAnswer(
+            @PathVariable Long questionId,
+            @RequestBody AnswerRequest request) {
+        try {
+            Answer savedAnswer = enrollmentService.addAnswer(questionId, request);
+            log.info("Answer created for question {} by user {}",
+                    questionId, request.getAnsweredBy());
+
+
+            return ResponseEntity.ok(AnswerResponse.builder()
+                    .id(savedAnswer.getId())
+                    .questionId(savedAnswer.getQuestion().getId())
+                    .answerText(savedAnswer.getAnswerText())
+                    .answeredBy(savedAnswer.getAnsweredBy())
+                    .answererName(savedAnswer.getAnswererName())
+                    .createdAt(savedAnswer.getCreatedAt())
+                    .build());
+        } catch (RuntimeException e) {
+            log.error("Error adding answer for question {}: {}", questionId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+
+    @PostMapping("/questions/{questionId}/like")
+    public ResponseEntity<LikeResponse> toggleLikeQuestion(
+            @PathVariable Long questionId,
+            @RequestParam Long userId
+    ) {
+        return ResponseEntity.ok(enrollmentService.toggleLikeQuestion(questionId, userId));
+    }
+
+    @PostMapping("/answers/{answerId}/like")
+    public ResponseEntity<LikeResponse> toggleLikeAnswer(
+            @PathVariable Long answerId,
+            @RequestParam Long userId
+    ) {
+        return ResponseEntity.ok(enrollmentService.toggleLikeAnswer(answerId, userId));
+    }
+
+
+    //check like status user
+    @GetMapping("/questions/{questionId}/like-status")
+    public ResponseEntity<Map<String, Object>> checkLikeQuestion(
+            @PathVariable Long questionId,
+            @RequestParam Long userId
+    ) {
+        try {
+            boolean liked = enrollmentService.hasUserLikedQuestion(questionId, userId);
+            return ResponseEntity.ok(Map.of(
+                    "questionId", questionId,
+                    "userId", userId,
+                    "liked", liked
+            ));
+        } catch (RuntimeException e) {
+            log.error("Error checking like status for question {}: {}", questionId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Error checking like status: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/answers/{answerId}/like-status")
+    public ResponseEntity<Map<String, Object>> checkLikeAnswer(
+            @PathVariable Long answerId,
+            @RequestParam Long userId
+    ) {
+        try {
+            boolean liked = enrollmentService.hasUserLikedAnswer(answerId, userId);
+            return ResponseEntity.ok(Map.of(
+                    "answerId", answerId,
+                    "userId", userId,
+                    "liked", liked
+            ));
+        } catch (RuntimeException e) {
+            log.error("Error checking like status for answer {}: {}", answerId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Error checking like status: " + e.getMessage()
+            ));
+        }
+    }
+
 }

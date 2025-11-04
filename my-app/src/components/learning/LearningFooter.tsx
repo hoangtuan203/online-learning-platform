@@ -1,10 +1,11 @@
-import { ChevronLeft, ChevronRight, MessageCircle, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface LearningFooterProps {
   onPrevLesson: () => void;
   onNextLesson: () => void;
   disabledPrev: boolean;
   disabledNext: boolean;
+  currentTitle: string;
 }
 
 export default function LearningFooter({
@@ -12,6 +13,7 @@ export default function LearningFooter({
   onNextLesson,
   disabledPrev,
   disabledNext,
+  currentTitle,
 }: LearningFooterProps) {
   return (
     <footer className="bg-white px-4 py-2 flex items-center justify-between border-t border-gray-200 shadow-sm fixed bottom-0 left-0 right-0 z-10">
@@ -23,13 +25,10 @@ export default function LearningFooter({
         <ChevronLeft className="h-3 w-3" />
         Trước
       </button>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <MessageCircle className="h-3.5 w-3.5 text-gray-600" />
-          <span className="text-xs text-gray-600">Hỏi đáp</span>
-          <span className="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full">12</span>
+      <div className="flex-1 mx-3 text-center">
+        <div className="text-sm font-medium text-gray-900 truncate">
+          {currentTitle}
         </div>
-   
       </div>
       <button
         onClick={onNextLesson}

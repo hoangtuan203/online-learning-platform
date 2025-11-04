@@ -39,7 +39,7 @@ const AddContentPage: React.FC = () => {
         position: "top-right",
         autoClose: 3000,
       });
-      setTimeout(() => navigate(`/courses/${courseId}`), 3500);
+      setTimeout(() => navigate(`/list-courses`), 3500);
     } else {
       setErrors({ api: response.errorMessage || "Lỗi không xác định" });
     }

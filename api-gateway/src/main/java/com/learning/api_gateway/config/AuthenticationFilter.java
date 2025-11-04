@@ -40,7 +40,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             "/user-service/users/login",
             "/user-service/users/refresh",
             "/user-service/users/create",
-
+            "/enrollment-service/ws/qa/**",
+            "/ws/qa/**"  // Fallback nếu route khác
     };
 
     @Value("${app.api-prefix:/api}")
@@ -50,23 +51,30 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         log.info("Enter authentication filter....");
-        String path = exchange.getRequest().getURI().getPath();  // Thêm log để debug
+        ServerHttpRequest request = exchange.getRequest();
+        String path = request.getURI().getPath();  // Thêm log để debug
         log.info("Request path: {}", path);
         log.info("API Prefix: {}", apiPrefix);
 
-        if (isPublicEndpoint(exchange.getRequest())) {
+        String upgradeHeader = request.getHeaders().getFirst("Upgrade");
+        if ("websocket".equalsIgnoreCase(upgradeHeader)) {
+            log.info("WebSocket upgrade detected, bypassing auth for path: {}", path);
+            return chain.filter(exchange);  // Skip hoàn toàn để tránh modify headers
+        }
+
+        if (isPublicEndpoint(request)) {
             log.info("Public endpoint matched, bypassing auth");
             return chain.filter(exchange);
         }
 
-        List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
+        List<String> authHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION);
         if (CollectionUtils.isEmpty(authHeader)) {
             log.warn("No auth header, returning 401");
             return unauthenticated(exchange.getResponse());
         }
 
         String token = authHeader.get(0).replace("Bearer ", "");
-        log.info("Token: {}", token);
+        log.info("Token: {}...", token.substring(0, Math.min(10, token.length())));  // Log truncated token
 
         return gatewayService.introspect(token).flatMap(introspectResponse -> {
             if (introspectResponse.getResult().isValid()) {
@@ -87,12 +95,21 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         return -1;
     }
 
+    // UPDATED: Hỗ trợ wildcard cho public endpoints (dùng ** cho subpaths)
     private boolean isPublicEndpoint(ServerHttpRequest request) {
         String path = request.getURI().getPath();
-        String fullPublicPath = apiPrefix + publicEndpoints[0];
-        log.info("Checking public: path='{}' startsWith '{}' ? = {}", path, fullPublicPath, path.startsWith(fullPublicPath));
+        if (!path.startsWith(apiPrefix)) {
+            return false;
+        }
+        String strippedPath = path.substring(apiPrefix.length());
         return Arrays.stream(publicEndpoints)
-                .anyMatch(s -> path.startsWith(apiPrefix + s));
+                .anyMatch(publicEndpoint -> {
+                    if (publicEndpoint.endsWith("/**")) {
+                        String prefix = publicEndpoint.substring(0, publicEndpoint.length() - 3);  // Remove /**
+                        return strippedPath.startsWith(prefix);
+                    }
+                    return strippedPath.startsWith(publicEndpoint);
+                });
     }
 
     private Mono<Void> unauthenticated(ServerHttpResponse response) {

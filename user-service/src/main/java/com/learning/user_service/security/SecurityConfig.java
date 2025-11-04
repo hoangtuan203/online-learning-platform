@@ -35,7 +35,7 @@ public class SecurityConfig {
             "/users/refresh",
             "/users/introspect",
             "/users/create",
-            "/graphql"
+            "/graphql",
     };
 
 

@@ -14,6 +14,18 @@ spring:
           format_sql: true
           use_sql_comments: true
       database-platform: org.hibernate.dialect.MySQLDialect
+
+
+    kafka:
+      bootstrap-servers: localhost:9092
+      producer:
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      consumer:
+        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+        group-id: enrollment-service-group
+        auto-offset-reset: earliest
 server:
   port: 8083
   servlet:
@@ -24,3 +36,18 @@ app:
   services:
     content:
       url: http://localhost:8084/content-service
+    user:
+      url: http://localhost:8888/api/user-service
+
+feign:
+  client:
+    config:
+      default:
+        requestInterceptors:
+          - com.learning.enrollment_service.client.FeignAuthInterceptor;
+
+
+logging:
+  level:
+    org.springframework.web.cors: DEBUG
+    org.springframework.security: DEBUG

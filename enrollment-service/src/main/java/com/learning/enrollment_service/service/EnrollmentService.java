@@ -1,20 +1,19 @@
 package com.learning.enrollment_service.service;
 
 import com.learning.enrollment_service.client.ContentClient;
+import com.learning.enrollment_service.client.UserClient;
 import com.learning.enrollment_service.dto.*;
 import com.learning.enrollment_service.entity.*;
-import com.learning.enrollment_service.repository.EnrollProgressRepository;
-import com.learning.enrollment_service.repository.EnrollmentRepository;
-import com.learning.enrollment_service.repository.NoteRepository;
+import com.learning.enrollment_service.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,9 +28,17 @@ public class EnrollmentService {
     private final EnrollProgressRepository enrollProgressRepository;
 
     private final NoteRepository noteRepository;
+    private final QuestionRepository questionRepository;
+    private final AnswerRepository answerRepository;
+    private final LikeRepository likeRepository;
+
+    @Autowired
+    private UserClient userClient;
 
     @Transactional
     public Enrollment enroll(EnrollmentRequest request) {
+
+        log.info("user Id request : {}", request.getUserId());
         Optional<Enrollment> existingEnrollment = enrollmentRepository
                 .findByUserIdAndCourseId(request.getUserId(), request.getCourseId());
 
@@ -43,7 +50,7 @@ public class EnrollmentService {
         // Sort contents by createdAt to match frontend ordering (ascending)
         contents.sort(Comparator.comparing(ContentDTO::getCreatedAt));
         int totalContentItems = contents.size();
-
+        log.info("user Id request : {}", request.getUserId());
         Enrollment newEnrollment = Enrollment.builder()
                 .userId(request.getUserId())
                 .courseId(request.getCourseId())
@@ -58,7 +65,7 @@ public class EnrollmentService {
         Enrollment savedEnrollment = enrollmentRepository.save(newEnrollment);
 
         // Create progress entries for all contents
-        for (ContentDTO content : contents){
+        for (ContentDTO content : contents) {
             EnrollmentProgress progress = EnrollmentProgress.builder()
                     .enrollment(savedEnrollment)
                     .contentItemId(content.getId())
@@ -81,6 +88,8 @@ public class EnrollmentService {
     }
 
     public EnrollmentStatusDTO checkEnrollment(EnrollmentRequest request) {
+        log.info("user Id request : {}", request.getUserId());
+        log.info("course id : {}", request.getCourseId());
         Optional<Enrollment> enrollment = enrollmentRepository
                 .findByUserIdAndCourseId(request.getUserId(), request.getCourseId());
         if (enrollment.isPresent()) {
@@ -95,20 +104,20 @@ public class EnrollmentService {
     //update progress
     @Transactional
     public Enrollment uploadEnrollment(Long enrollmentId, UpdateProgressRequest request) {
-        Optional<Enrollment> optionalEnrollment =   enrollmentRepository.findById(enrollmentId);
-        if(optionalEnrollment.isEmpty()){
+        Optional<Enrollment> optionalEnrollment = enrollmentRepository.findById(enrollmentId);
+        if (optionalEnrollment.isEmpty()) {
             throw new RuntimeException("Enrollment not found!");
         }
         Enrollment enrollment = optionalEnrollment.get();
-        if(enrollment.getTotalContentItems() == 0){
-            throw  new RuntimeException("Enrollment has no content!");
+        if (enrollment.getTotalContentItems() == 0) {
+            throw new RuntimeException("Enrollment has no content!");
         }
         Optional<EnrollmentProgress> optionalEnrollmentProgress = enrollProgressRepository.findByEnrollmentIdAndContentItemId(enrollmentId, request.getContentItemId());
         EnrollmentProgress progress;
 
-        if(optionalEnrollmentProgress.isPresent()){
+        if (optionalEnrollmentProgress.isPresent()) {
             progress = optionalEnrollmentProgress.get();
-        }else{
+        } else {
             progress = EnrollmentProgress.builder()
                     .enrollment(enrollment)
                     .contentItemId(request.getContentItemId())
@@ -125,26 +134,18 @@ public class EnrollmentService {
         return enrollmentRepository.save(enrollment);
     }
 
-    /**
-     * Load detailed progress for the enrollment, including completed contents and current position.
-     * Fetches contents from ContentClient to enrich with title/type.
-     */
+
     public EnrollmentProgressDetailsResponse loadProgressDetails(Long enrollmentId) {
         Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new RuntimeException("Enrollment not found: " + enrollmentId));
 
-        // Fetch all progress entries
         List<EnrollmentProgress> progressEntries = progressRepository.findByEnrollment(enrollment);
 
-        // Fetch full contents from ContentClient for enrichment
         List<ContentDTO> contents = contentClient.getContentsByCourseId(enrollment.getCourseId());
-        // Sort contents by createdAt to match frontend ordering (ascending)
         contents.sort(Comparator.comparing(ContentDTO::getCreatedAt));
 
-        // Map to find current unfinished content (first non-completed after sorted order)
         String currentContentId = enrollment.getCurrentContentId(); // Use saved currentContentId, fallback to first non-completed
         if (currentContentId == null) {
-            // Fallback: find first non-completed
             for (ContentDTO content : contents) {
                 Optional<EnrollmentProgress> progressOpt = progressEntries.stream()
                         .filter(p -> p.getContentItemId().equals(content.getId()))
@@ -158,7 +159,6 @@ public class EnrollmentService {
 
         List<ContentProgressDTO> contentProgressList = contents.stream()
                 .map(content -> {
-                    // Find matching progress entry
                     Optional<EnrollmentProgress> progressOpt = progressEntries.stream()
                             .filter(p -> p.getContentItemId().equals(content.getId()))
                             .findFirst();
@@ -262,6 +262,7 @@ public class EnrollmentService {
                         .build())
                 .collect(Collectors.toList());
     }
+
     @Transactional
     public Note updateNote(Long enrollmentId, Long noteId, NoteRequest request) {
         Note note = noteRepository.findByIdAndEnrollmentId(noteId, enrollmentId)
@@ -298,4 +299,255 @@ public class EnrollmentService {
                         .build())
                 .collect(Collectors.toList());
     }
+
+
+
+    public List<QAResponse> getQAByContentInCourse(Long courseId, String contentId, Long userId) {
+        List<Question> questions = questionRepository
+                .findByCourseIdAndContentIdOrderByCreatedAtDesc(courseId, contentId);
+
+        if (questions.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> questionIds = questions.stream()
+                .map(Question::getId)
+                .collect(Collectors.toList());
+
+        List<Answer> allAnswers = answerRepository.findByQuestionIdIn(questionIds);
+
+        List<Long> answerIds = allAnswers.stream()
+                .map(Answer::getId)
+                .collect(Collectors.toList());
+
+        Map<Long, Integer> questionLikeCounts = new HashMap<>();
+        Map<Long, Integer> answerLikeCounts = new HashMap<>();
+        Set<Long> likedQuestionIds = new HashSet<>();
+        Set<Long> likedAnswerIds = new HashSet<>();
+
+        for (Long qId : questionIds) {
+            questionLikeCounts.put(qId, likeRepository.countByQuestionId(qId));
+            if (userId != null && likeRepository.existsByQuestionIdAndUserId(qId, userId)) {
+                likedQuestionIds.add(qId);
+            }
+        }
+
+        for (Long aId : answerIds) {
+            answerLikeCounts.put(aId, likeRepository.countByAnswerId(aId));
+            if (userId != null && likeRepository.existsByAnswerIdAndUserId(aId, userId)) {
+                likedAnswerIds.add(aId);
+            }
+        }
+
+        Map<Long, List<Answer>> answersByQuestion = allAnswers.stream()
+                .collect(Collectors.groupingBy(answer -> answer.getQuestion().getId()));
+
+        return questions.stream()
+                .map(question -> {
+                    Long enrollmentUserId = question.getEnrollment().getUserId();
+                    String authorName = enrollmentUserId != null
+                            ? getUserNameFromClient(enrollmentUserId)
+                            : "Anonymous";
+                    String authorAvatar = enrollmentUserId != null
+                            ? getAvatarUserFromClient(enrollmentUserId)
+                            : null;
+
+                    List<Answer> questionAnswers = answersByQuestion.getOrDefault(question.getId(), List.of());
+
+                    List<AnswerResponse> answerResponses = questionAnswers.stream()
+                            .map(answer -> {
+                                Long answeredById = answer.getAnsweredBy();
+                                String answererName = answeredById != null
+                                        ? getUserNameFromClient(answeredById)
+                                        : "Anonymous";
+
+                                return AnswerResponse.builder()
+                                        .id(answer.getId())
+                                        .questionId(question.getId())
+                                        .answerText(answer.getAnswerText())
+                                        .answeredBy(answeredById)
+                                        .answererName(answererName)
+                                        .createdAt(answer.getCreatedAt())
+                                        .likeCount(answerLikeCounts.getOrDefault(answer.getId(), 0))
+                                        .liked(likedAnswerIds.contains(answer.getId()))
+                                        .build();
+                            })
+                            .collect(Collectors.toList());
+
+                    QuestionResponse questionResponse = QuestionResponse.builder()
+                            .id(question.getId())
+                            .authorName(authorName)
+                            .authorAvatar(authorAvatar)
+                            .contentId(question.getContentId())
+                            .questionText(question.getQuestionText())
+                            .answered(!questionAnswers.isEmpty())
+                            .createdAt(question.getCreatedAt())
+                            .likeCount(questionLikeCounts.getOrDefault(question.getId(), 0))
+                            .liked(likedQuestionIds.contains(question.getId()))
+                            .build();
+
+                    return QAResponse.builder()
+                            .question(questionResponse)
+                            .answers(answerResponses)
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+
+    @Transactional
+    public Question addQuestion(Long enrollmentId, QuestionRequest request) {
+        Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new RuntimeException("Enrollment not found: " + enrollmentId));
+
+        Question newQuestion = Question.builder()
+                .enrollment(enrollment)
+                .courseId(enrollment.getCourseId())
+                .contentId(request.getContentId())
+                .questionText(request.getQuestionText())
+                .askedBy(request.getAskedBy())
+                .askerName(request.getAskedName())
+                .answered(false)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        Question savedQuestion = questionRepository.save(newQuestion);
+        log.info("Added question for enrollment {} and content {}: {}",
+                enrollmentId, request.getContentId(), savedQuestion.getId());
+
+        return savedQuestion;
+    }
+
+
+    @Transactional
+    public Answer addAnswer(Long questionId, AnswerRequest request) {  // Renamed to addAnswer since we always add new
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found: " + questionId));
+
+        Answer answer = Answer.builder()
+                .question(question)
+                .answerText(request.getAnswerText())
+                .answeredBy(request.getAnsweredBy())
+                .answererName(request.getAnswereName())
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())  // FIXED: LocalDateTime.now() instead of LocalDateTime.now()
+                .build();
+        answer = answerRepository.save(answer);
+
+        // Mark question as answered if it has at least one answer (set only if not already true)
+        if (!question.getAnswered()) {
+            question.setAnswered(true);
+            question.setUpdatedAt(LocalDateTime.now());
+            questionRepository.save(question);
+        }
+
+        log.info("Added answer for question {}: {}", questionId, answer.getId());
+        return answer;
+    }
+
+    private String getUserNameFromClient(Long userId) {
+        try {
+            ResponseEntity<UserResponse> response = userClient.getUserById(userId);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody().getName();
+            }
+        } catch (Exception e) {
+            log.error("Failed to get user name for userId: {}", userId, e);
+        }
+        return "Anonymous";
+    }
+
+
+    private String getAvatarUserFromClient(Long userId) {
+        try {
+            ResponseEntity<UserResponse> response = userClient.getUserById(userId);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody().getAvatarUrl();
+            }
+        } catch (Exception e) {
+            log.error("Failed to get avatar for userId: {}", userId, e);
+        }
+        return null;
+    }
+
+    @Transactional
+    public LikeResponse toggleLikeQuestion(Long questionId, Long userId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found: " + questionId));
+
+        Optional<Like> existingLike = likeRepository.findByQuestionIdAndUserId(questionId, userId);
+
+        boolean isLiked;
+
+        if (existingLike.isPresent()) {
+            likeRepository.delete(existingLike.get());
+            isLiked = false;
+            log.info("Unlike question: {} by user: {}", questionId, userId);
+        } else {
+            Like like = Like.builder()
+                    .question(question)
+                    .answer(null)
+                    .userId(userId)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            likeRepository.save(like);
+            isLiked = true;
+            log.info("Like question: {} by user: {}", questionId, userId);
+        }
+
+        int likeCount = likeRepository.countByQuestionId(questionId);
+
+        return LikeResponse.builder()
+                .liked(isLiked)
+                .likeCount(likeCount)
+                .build();
+    }
+
+    @Transactional
+    public LikeResponse toggleLikeAnswer(Long answerId, Long userId) {
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(() -> new RuntimeException("Answer not found: " + answerId));
+
+        Optional<Like> existingLike = likeRepository.findByAnswerIdAndUserId(answerId, userId);
+
+        boolean isLiked;
+
+        if (existingLike.isPresent()) {
+            likeRepository.delete(existingLike.get());
+            isLiked = false;
+            log.info("Unlike answer: {} by user: {}", answerId, userId);
+        } else {
+            Like like = Like.builder()
+                    .question(null)
+                    .answer(answer)
+                    .userId(userId)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            likeRepository.save(like);
+            isLiked = true;
+            log.info("Like answer: {} by user: {}", answerId, userId);
+        }
+
+        int likeCount = likeRepository.countByAnswerId(answerId);
+
+        return LikeResponse.builder()
+                .liked(isLiked)
+                .likeCount(likeCount)
+                .build();
+    }
+
+    public boolean hasUserLikedQuestion(Long questionId, Long userId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found"));
+        return question.isLikedBy(userId);
+    }
+
+    public boolean hasUserLikedAnswer(Long answerId, Long userId) {
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(() -> new RuntimeException("Answer not found"));
+        return answer.getLikes().stream()
+                .anyMatch(like -> like.getUserId().equals(userId));
+    }
+
 }

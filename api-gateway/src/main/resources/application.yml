@@ -43,12 +43,32 @@ spring:
               filters:
                 - StripPrefix=1
 
+            - id: enrollment-service-QA
+              uri: http://localhost:8083
+              predicates:
+                - Path=${app.api-prefix}/enrollment-service/qa/**
+              filters:
+                - StripPrefix=1
+
+            - id: enrollment-service-websocket
+              uri: http://localhost:8083
+              predicates:
+                - Path=${app.api-prefix}/enrollment-service/ws/qa/**
+              filters:
+                - StripPrefix=1
+                - DedupeResponseHeader=Access-Control-Allow-Origin RETAIN_FIRST
+                - DedupeResponseHeader=Access-Control-Allow-Credentials RETAIN_FIRST
+                - DedupeResponseHeader=Access-Control-Allow-Headers RETAIN_FIRST
+                - DedupeResponseHeader=Access-Control-Allow-Methods RETAIN_FIRST
+                - DedupeResponseHeader=Vary RETAIN_FIRST
+
             - id: content-service
               uri: http://localhost:8084
               predicates:
                 - Path=${app.api-prefix}/content-service/contents/**
               filters:
                 - StripPrefix=1
+
 
 eureka:
   client:

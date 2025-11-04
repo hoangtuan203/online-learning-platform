@@ -1,6 +1,4 @@
 package com.learning.api_gateway.config;
-
-
 import com.learning.api_gateway.repository.GatewayClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,16 +21,16 @@ public class WebClientConfiguration {
     }
 
     @Bean
-    CorsWebFilter corsWebFilter(){
-        CorsConfiguration corsConfiguration = new CorsConfiguration();
-        corsConfiguration.setAllowedOrigins(List.of("*"));
-        corsConfiguration.setAllowedHeaders(List.of("*"));
-        corsConfiguration.setAllowedMethods(List.of("*"));
+    CorsWebFilter corsWebFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedMethods(List.of("*"));
+        config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource urlBasedCorsConfigurationSource = new UrlBasedCorsConfigurationSource();
-        urlBasedCorsConfigurationSource.registerCorsConfiguration("/**", corsConfiguration);
-
-        return new CorsWebFilter(urlBasedCorsConfigurationSource);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return new CorsWebFilter(source);
     }
 
     @Bean
