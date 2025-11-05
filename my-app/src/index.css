@@ -42,14 +42,14 @@ body {
   text-align: left;
 }
 
-a {
+/* a {
   font-weight: 500;
   color: #646cff;
   text-decoration: inherit;
 }
 a:hover {
   color: #535bf2;
-}
+} */
 
 h1 {
   font-size: 3.2em;

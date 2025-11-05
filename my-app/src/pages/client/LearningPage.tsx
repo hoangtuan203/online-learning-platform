@@ -322,7 +322,28 @@ export default function LearningPage() {
     }
   };
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  
+  // Kiểm tra xem bài học có được unlock không (bài đầu tiên hoặc bài sau bài đã completed)
+  const isLessonUnlocked = useCallback((lessonId: string): boolean => {
+    if (!learningData) return false;
+    const currentIndex = learningData.lessons.findIndex((l) => l.id === lessonId);
+    if (currentIndex === -1) return false;
+    
+    // Bài đầu tiên luôn được unlock
+    if (currentIndex === 0) return true;
+    
+    // Bài học được unlock nếu bài trước đó đã completed
+    const prevLesson = learningData.lessons[currentIndex - 1];
+    return prevLesson.completed === true;
+  }, [learningData]);
+
   const handleLessonSelect = (lessonId: string) => {
+    // Kiểm tra xem bài học có được unlock không
+    if (!isLessonUnlocked(lessonId)) {
+      toast.error("Bạn cần hoàn thành bài học trước đó để mở khóa bài này");
+      return;
+    }
+    
     setSelectedLessonId(lessonId);
     setQuizAnswers(null);
     setQuizResult(null);
@@ -384,7 +405,11 @@ export default function LearningPage() {
     );
     if (currentIndex > 0) {
       const prevId = learningData.lessons[currentIndex - 1].id;
+      const prevLesson = learningData.lessons[currentIndex - 1];
       handleLessonSelect(prevId);
+      toast.success(`Đã chuyển sang: ${prevLesson.title}`);
+    } else {
+      toast("Bạn đang ở bài học đầu tiên", { icon: "ℹ️" });
     }
   };
   const handleNextLesson = async () => {
@@ -408,26 +433,32 @@ export default function LearningPage() {
         }
         break;
       case "VIDEO":
-        // require >= 80% watched
+        // require 100% watched or video has ended
         if (currentVideo && currentVideo.duration > 0) {
           const watchedRatio =
             (currentVideo.currentTime || 0) / currentVideo.duration;
-          if (watchedRatio >= 0.8) {
+          const isVideoEnded = currentVideo.ended || false;
+          // Allow if video ended or watched >= 99.5% (to account for small rounding differences)
+          if (isVideoEnded || watchedRatio >= 0.995) {
             isCompleted = true;
           } else {
-            toast.error("Bạn cần xem ít nhất 80% video để tiếp tục.");
+            const watchedPercent = Math.round(watchedRatio * 100);
+            toast.error(
+              `Bạn cần xem hết video để tiếp tục. Hiện tại: ${watchedPercent}%`
+            );
             return;
           }
         } else {
-          // If no video element (e.g., youtube iframe) allow proceeding only if duration info not available
+          // If no video element (e.g., youtube iframe) - cannot verify completion
           toast.error(
-            "Không thể xác định tiến độ video. Hãy xem nội dung trước khi tiếp tục."
+            "Không thể xác định tiến độ video. Vui lòng xem hết video trước khi tiếp tục."
           );
           return;
         }
         break;
       case "DOCUMENT":
-        isCompleted = true; // Always completed for document
+        // Document không cần kiểm tra, có thể chuyển ngay
+        isCompleted = true;
         break;
       default:
         isCompleted = true;
@@ -442,15 +473,21 @@ export default function LearningPage() {
     );
     if (currentIndex < learningData.lessons.length - 1) {
       const nextId = learningData.lessons[currentIndex + 1].id;
+      const nextLesson = learningData.lessons[currentIndex + 1];
       handleLessonSelect(nextId);
       // Save current position to backend
       try {
         await enrollService.updateCurrentPosition(enrollmentId, {
           currentContentId: nextId,
         });
+        toast.success(`Đã chuyển sang: ${nextLesson.title}`);
       } catch (err) {
         console.error("Lỗi lưu vị trí học hiện tại:", err);
+        toast.error("Đã chuyển bài nhưng không thể lưu vị trí học tập");
       }
+    } else {
+      // Đã đến bài cuối cùng
+      toast.success("Bạn đã hoàn thành tất cả các bài học trong khóa học này!");
     }
   };
   const handleOpenAddNoteForm = () => {
@@ -767,6 +804,7 @@ export default function LearningPage() {
             }}
             onToggleTab={setActiveSidebar}
             renderTypeIcon={renderTypeIcon}
+            isLessonUnlocked={isLessonUnlocked}
           />
         </div>
         {/* Notes overlay (renders above content) */}

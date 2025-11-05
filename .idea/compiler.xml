@@ -9,6 +9,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="course-service" />
         <module name="content-service" />
+        <module name="notification_service" />
         <module name="api-gateway" />
         <module name="user-service" />
         <module name="eureka-server" />
@@ -24,6 +25,7 @@
       <module name="course-service" options="-parameters" />
       <module name="enrollment-service" options="-parameters" />
       <module name="eureka-server" options="-parameters" />
+      <module name="notification_service" options="-parameters" />
       <module name="recommendation-service" options="-parameters" />
       <module name="user-service" options="-parameters" />
     </option>

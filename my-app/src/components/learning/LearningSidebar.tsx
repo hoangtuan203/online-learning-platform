@@ -30,6 +30,7 @@ interface LearningSidebarProps {
   onToggleSidebar: (open: boolean) => void;
   onToggleTab: (tab: "lessons" | "notes") => void;
   renderTypeIcon: (type: string) => any;
+  isLessonUnlocked: (lessonId: string) => boolean;
 }
 
 export default function LearningSidebar({
@@ -42,6 +43,7 @@ export default function LearningSidebar({
   onLessonSelect,
   onToggleSidebar,
   renderTypeIcon,
+  isLessonUnlocked,
 }: LearningSidebarProps) {
   return (
     <aside
@@ -73,9 +75,14 @@ export default function LearningSidebar({
                 {lessons.map((lesson) => {
                   const isSelected = selectedLessonId === lesson.id;
                   const isCompleted = lesson.completed;
+                  const isUnlocked = isLessonUnlocked(lesson.id);
                   let buttonClass =
                     "w-full text-left p-3 rounded-lg transition-colors border border-transparent flex items-center gap-3";
-                  if (isSelected) {
+                  
+                  if (!isUnlocked) {
+                    // Bài chưa unlock - disabled style
+                    buttonClass += " bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-60";
+                  } else if (isSelected) {
                     buttonClass += " bg-blue-50 border-blue-200 text-blue-700";
                   } else if (isCompleted) {
                     buttonClass +=
@@ -87,13 +94,18 @@ export default function LearningSidebar({
                     <button
                       key={lesson.id}
                       className={buttonClass}
-                      onClick={() => onLessonSelect(lesson.id)}
+                      onClick={() => isUnlocked && onLessonSelect(lesson.id)}
+                      disabled={!isUnlocked}
+                      title={!isUnlocked ? "Bạn cần hoàn thành bài học trước đó để mở khóa bài này" : ""}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           {renderTypeIcon(lesson.type)}
                           <span className="font-medium truncate">
                             {lesson.title}
+                            {!isUnlocked && (
+                              <span className="ml-2 text-xs">🔒</span>
+                            )}
                           </span>
                         </div>
                         <span className="text-xs text-gray-400 block">

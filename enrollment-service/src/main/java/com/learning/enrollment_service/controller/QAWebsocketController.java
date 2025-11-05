@@ -1,8 +1,5 @@
 package com.learning.enrollment_service.controller;
 
-import com.learning.enrollment_service.dto.QAEvent;
-import com.learning.enrollment_service.dto.QAPayload;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;

@@ -26,6 +26,8 @@ spring:
         value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
         group-id: enrollment-service-group
         auto-offset-reset: earliest
+
+
 server:
   port: 8083
   servlet:

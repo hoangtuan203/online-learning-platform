@@ -550,4 +550,10 @@ public class EnrollmentService {
                 .anyMatch(like -> like.getUserId().equals(userId));
     }
 
+
+    public String getQuestionOwnerId(Long questionId) {
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found: " + questionId));
+        return question.getEnrollment().getUserId().toString();
+    }
 }
