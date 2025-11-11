@@ -2,6 +2,7 @@ package com.learning.enrollment_service.repository;
 
 import com.learning.enrollment_service.entity.Answer;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,4 +18,9 @@ public interface AnswerRepository extends JpaRepository<Answer, Long> {
     Optional<Answer> findByIdWithLikes(@Param("id") Long id);
 
     List<Answer>  findByQuestionIdIn(List<Long> questionIds);
+
+
+
+    @Query("SELECT a FROM Answer a WHERE a.question.id = :questionId")
+    List<Answer> findAnswersByQuestionId(@Param("questionId") Long questionId);
 }

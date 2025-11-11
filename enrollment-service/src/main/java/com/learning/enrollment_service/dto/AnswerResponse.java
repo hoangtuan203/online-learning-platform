@@ -15,7 +15,9 @@ public class AnswerResponse {
     private String answerText;
     private Long answeredBy;
     private String answererName;
+    private String answererAvatar;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private Integer likeCount;
     private Boolean liked;
 }

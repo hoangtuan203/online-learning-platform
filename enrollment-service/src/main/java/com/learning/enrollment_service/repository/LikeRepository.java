@@ -21,4 +21,12 @@ public interface LikeRepository extends JpaRepository<Like, Long> {
 
     boolean existsByQuestionIdAndUserId(Long questionId, Long userId);
     boolean existsByAnswerIdAndUserId(Long answerId, Long userId);
+
+    @Modifying
+    @Query("DELETE FROM Like l WHERE l.question.id = :questionId")
+    void deleteByQuestionId(@Param("questionId") Long questionId);
+
+    @Modifying
+    @Query("DELETE FROM Like l WHERE l.answer.id = :answerId")
+    void deleteByAnswerId(@Param("answerId") Long answerId);
 }

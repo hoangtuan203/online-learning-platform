@@ -9,16 +9,15 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
-    List<Notification> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(String userId);
 
-    @Modifying
+    List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
+
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.id = :id AND n.userId = :userId")
     void markAsRead(@Param("id") Long id, @Param("userId") String userId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.userId = :userId AND n.isRead = false")
     void markAllAsRead(@Param("userId") String userId);
 

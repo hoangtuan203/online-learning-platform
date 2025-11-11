@@ -16,6 +16,15 @@ export interface AnswerRequest {
     parentAnswerId?: number;
 }
 
+export interface QuestionUpdateRequest {
+    questionText: string;
+}
+
+export interface AnswerUpdateRequest {
+    answerText: string;
+    userId: number;
+}
+
 export interface QuestionResponse {
     id: number;
     contentId: string;
@@ -39,9 +48,9 @@ export interface AnswerResponse {
     answeredBy: number;
     answererName: string;
     answererUsername?: string;
+    answererAvatar?: string;
     parentId?: number;
     createdAt: string;
-    // NEW: Like fields
     likeCount?: number;
     liked?: boolean;
 }
@@ -149,6 +158,7 @@ export class QAService {
         }
     }
 
+    // UPDATED: Fix body to match backend DTO { questionText: string }
     async updateQuestion(enrollmentId: number, questionId: number, newQuestion: string): Promise<QuestionResponse> {
         const authHeaders = getAuthHeaders();
         if (!authHeaders) {
@@ -158,7 +168,7 @@ export class QAService {
         try {
             const response = await httpRequest.put(
                 `/enrollment-service/enrolls/${enrollmentId}/questions/${questionId}`,
-                { question: newQuestion },
+                { questionText: newQuestion },  // FIXED: Use questionText
                 authHeaders
             );
 
@@ -187,6 +197,50 @@ export class QAService {
             );
         } catch (error) {
             this.handleError(error, 'Lỗi khi xóa câu hỏi');
+            throw error;
+        }
+    }
+
+    // NEW: Add updateAnswer
+    async updateAnswer(questionId: number, answerId: number, newAnswer: string, userId: number): Promise<AnswerResponse> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để cập nhật câu trả lời');
+        }
+
+        try {
+            const response = await httpRequest.put(
+                `/enrollment-service/enrolls/questions/${questionId}/answers/${answerId}`,
+                { answerText: newAnswer, userId },
+                authHeaders
+            );
+
+            if (!response.data) {
+                throw new Error('Không nhận được phản hồi từ server');
+            }
+
+            const result = response.data.result || response.data;
+            return this.normalizeAnswer(result);
+        } catch (error) {
+            this.handleError(error, 'Lỗi khi cập nhật câu trả lời');
+            throw error;
+        }
+    }
+
+    // NEW: Add deleteAnswer
+    async deleteAnswer(questionId: number, answerId: number, userId: number): Promise<void> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để xóa câu trả lời');
+        }
+
+        try {
+            await httpRequest.delete(
+                `/enrollment-service/enrolls/questions/${questionId}/answers/${answerId}?userId=${userId}`,
+                authHeaders
+            );
+        } catch (error) {
+            this.handleError(error, 'Lỗi khi xóa câu trả lời');
             throw error;
         }
     }
@@ -313,7 +367,7 @@ export class QAService {
                 id: answer.id || 0,
                 questionId: answer.questionId || 0,
                 answerText: answer.answerText || '',
-                answeredBy: answer.answeredBy || 0,
+                answeredBy: answer.answeredBy || 0,  // UPDATED: Include answeredBy for owner check
                 answererName: answer.answererName || 'Admin',
                 answererUsername: answer.answererUsername || '',
                 parentId: answer.parentId,

@@ -1,9 +1,7 @@
 package com.learning.enrollment_service.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import lombok.*;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -62,8 +60,11 @@ public class Enrollment {
     private Integer version;
 
     @OneToMany(mappedBy = "enrollment", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonManagedReference
     @Builder.Default
+    @ToString.Exclude
     private List<EnrollmentProgress> enrollmentProgresses = new ArrayList<>();
+
     public void calculateProgress() {
         if (totalContentItems > 0) {
             long completedCount = enrollmentProgresses.stream()
@@ -76,7 +77,6 @@ public class Enrollment {
         if (this.progressPercentage >= 100) {
             this.status = EnrollmentStatus.COMPLETED;
             this.completedDate = LocalDateTime.now();
-            // Có thể generate certificate ở đây
         }
     }
 }

@@ -1,9 +1,6 @@
 package com.learning.enrollment_service.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,6 +20,7 @@ public class EnrollmentProgress {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "enrollment_id", nullable = false)
+    @ToString.Exclude
     private Enrollment enrollment;
 
     @Column(name = "content_item_id", nullable = false)

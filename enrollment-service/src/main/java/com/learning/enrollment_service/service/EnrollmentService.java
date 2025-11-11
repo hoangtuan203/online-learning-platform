@@ -1,6 +1,7 @@
 package com.learning.enrollment_service.service;
 
 import com.learning.enrollment_service.client.ContentClient;
+import com.learning.enrollment_service.client.CourseClient;
 import com.learning.enrollment_service.client.UserClient;
 import com.learning.enrollment_service.dto.*;
 import com.learning.enrollment_service.entity.*;
@@ -34,6 +35,8 @@ public class EnrollmentService {
 
     @Autowired
     private UserClient userClient;
+    @Autowired
+    private CourseClient courseClient;
 
     @Transactional
     public Enrollment enroll(EnrollmentRequest request) {
@@ -300,7 +303,71 @@ public class EnrollmentService {
                 .collect(Collectors.toList());
     }
 
+    public List<EnrollmentDTO> getEnrollmentsByUserId(Long userId) {
+        List<Enrollment> enrollments = enrollmentRepository.findByUserIdWithProgress(userId);
+        for (Enrollment enrollment : enrollments) {
+            enrollment.calculateProgress();
+        }
 
+        List<EnrollmentDTO> dtos = enrollments.stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+
+        log.info("Retrieved {} enrollments for userId: {}", dtos.size(), userId);
+        return dtos;
+    }
+
+    private EnrollmentDTO toDto(Enrollment enrollment) {
+
+        String courseTitle = null;
+        String thumbnailUrl = null;
+        String fullName = null;
+        if (enrollment.getCourseId() != null) {
+            try {
+                CourseDTO courseDTO = courseClient.getCourseById(enrollment.getCourseId());
+                log.info("CourseDTO : {}", courseDTO);
+                courseTitle = courseDTO.getTitle();
+                thumbnailUrl = courseDTO.getThumbnailUrl();
+                fullName = courseDTO.getInstructor().getName();
+            } catch (Exception e) {
+                log.warn("Failed to fetch course title for courseId: {}, error: {}", enrollment.getCourseId(), e.getMessage());
+                courseTitle = "Unknown Course";  // Fallback
+            }
+        }
+
+        return EnrollmentDTO.builder()
+                .id(enrollment.getId())
+                .userId(enrollment.getUserId())
+                .courseId(enrollment.getCourseId())
+                .courseTitle(courseTitle)
+                .thumbnailUrl(thumbnailUrl)
+                .instructorName(fullName)
+                .enrollmentDate(enrollment.getEnrollmentDate())
+                .startDate(enrollment.getStartDate())
+                .completedDate(enrollment.getCompletedDate())
+                .status(enrollment.getStatus())
+                .progressPercentage(enrollment.getProgressPercentage())
+                .totalContentItems(enrollment.getTotalContentItems())
+                .currentContentId(enrollment.getCurrentContentId())
+                .createdAt(enrollment.getCreatedAt())
+                .updatedAt(enrollment.getUpdatedAt())
+                .progressSummaries(enrollment.getEnrollmentProgresses().stream()
+                        .map(this::toProgressSummary)
+                        .collect(Collectors.toList()))
+                .build();
+    }
+
+    // Helper method cho progress summary (như trên)
+    private EnrollmentProgressSummaryDTO toProgressSummary(EnrollmentProgress progress) {
+        return EnrollmentProgressSummaryDTO.builder()
+                .id(progress.getId())
+                .contentItemId(progress.getContentItemId())
+                .contentType(progress.getContentType())
+                .completed(progress.getCompleted())
+                .score(progress.getScore())
+                .durationSpent(progress.getDurationSpent())
+                .build();
+    }
 
     public List<QAResponse> getQAByContentInCourse(Long courseId, String contentId, Long userId) {
         List<Question> questions = questionRepository
@@ -360,6 +427,9 @@ public class EnrollmentService {
                                 String answererName = answeredById != null
                                         ? getUserNameFromClient(answeredById)
                                         : "Anonymous";
+                                String answererAvatar = answeredById != null  // THÊM FETCH AVATAR
+                                        ? getAvatarUserFromClient(answeredById)
+                                        : null;
 
                                 return AnswerResponse.builder()
                                         .id(answer.getId())
@@ -367,13 +437,16 @@ public class EnrollmentService {
                                         .answerText(answer.getAnswerText())
                                         .answeredBy(answeredById)
                                         .answererName(answererName)
+                                        .answererAvatar(answererAvatar)  // SET FIELD MỚI
                                         .createdAt(answer.getCreatedAt())
+                                        .updatedAt(answer.getUpdatedAt())  // ĐẦY ĐỦ (nếu null thì OK)
                                         .likeCount(answerLikeCounts.getOrDefault(answer.getId(), 0))
                                         .liked(likedAnswerIds.contains(answer.getId()))
                                         .build();
                             })
                             .collect(Collectors.toList());
 
+                    // Phần questions giữ nguyên như fix trước (với .askedBy(enrollmentUserId))
                     QuestionResponse questionResponse = QuestionResponse.builder()
                             .id(question.getId())
                             .authorName(authorName)
@@ -382,8 +455,10 @@ public class EnrollmentService {
                             .questionText(question.getQuestionText())
                             .answered(!questionAnswers.isEmpty())
                             .createdAt(question.getCreatedAt())
+                            .updatedAt(question.getUpdatedAt())
                             .likeCount(questionLikeCounts.getOrDefault(question.getId(), 0))
                             .liked(likedQuestionIds.contains(question.getId()))
+                            .askedBy(enrollmentUserId)  // Từ fix trước
                             .build();
 
                     return QAResponse.builder()
@@ -393,8 +468,6 @@ public class EnrollmentService {
                 })
                 .collect(Collectors.toList());
     }
-
-
     @Transactional
     public Question addQuestion(Long enrollmentId, QuestionRequest request) {
         Enrollment enrollment = enrollmentRepository.findById(enrollmentId)
@@ -556,4 +629,123 @@ public class EnrollmentService {
                 .orElseThrow(() -> new RuntimeException("Question not found: " + questionId));
         return question.getEnrollment().getUserId().toString();
     }
+
+    @Transactional
+    public QuestionResponse updateQuestion(Long questionId, Long enrollmentId, QuestionUpdateRequest request) {
+        // Kiểm tra question tồn tại và thuộc enrollment của user
+        Question question = questionRepository.findByIdAndEnrollmentId(questionId, enrollmentId)
+                .orElseThrow(() -> new RuntimeException("Question not found or you are not authorized to edit: " + questionId));
+
+        // Validate input
+        if (request.getQuestionText() == null || request.getQuestionText().trim().isEmpty()) {
+            throw new RuntimeException("Question text cannot be empty");
+        }
+
+        // Cập nhật
+        question.setQuestionText(request.getQuestionText());
+        question.setUpdatedAt(LocalDateTime.now());
+
+        Question updatedQuestion = questionRepository.save(question);
+
+        // Trả về DTO (tương tự getQAByContentInCourse)
+        Long enrollmentUserId = updatedQuestion.getEnrollment().getUserId();
+        String authorName = getUserNameFromClient(enrollmentUserId);
+        String authorAvatar = getAvatarUserFromClient(enrollmentUserId);
+
+        return QuestionResponse.builder()
+                .id(updatedQuestion.getId())
+                .authorName(authorName)
+                .authorAvatar(authorAvatar)
+                .contentId(updatedQuestion.getContentId())
+                .questionText(updatedQuestion.getQuestionText())  // Nội dung mới
+                .answered(updatedQuestion.getAnswered())
+                .createdAt(updatedQuestion.getCreatedAt())
+                .updatedAt(updatedQuestion.getUpdatedAt())
+                .likeCount(likeRepository.countByQuestionId(updatedQuestion.getId()))
+                .liked(hasUserLikedQuestion(updatedQuestion.getId(), enrollmentUserId))
+                .build();
+    }
+
+    @Transactional
+    public AnswerResponse updateAnswer(Long answerId, AnswerUpdateRequest request) {
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(() -> new RuntimeException("Answer not found: " + answerId));
+
+        // Kiểm tra quyền: userId phải khớp answeredBy
+        if (!answer.getAnsweredBy().equals(request.getUserId())) {
+            throw new RuntimeException("You are not authorized to edit this answer");
+        }
+
+        // Validate input
+        if (request.getAnswerText() == null || request.getAnswerText().trim().isEmpty()) {
+            throw new RuntimeException("Answer text cannot be empty");
+        }
+
+        // Cập nhật
+        answer.setAnswerText(request.getAnswerText());
+        answer.setUpdatedAt(LocalDateTime.now());
+
+        Answer updatedAnswer = answerRepository.save(answer);
+
+        // Trả về DTO
+        String answererName = getUserNameFromClient(updatedAnswer.getAnsweredBy());
+
+        return AnswerResponse.builder()
+                .id(updatedAnswer.getId())
+                .questionId(updatedAnswer.getQuestion().getId())
+                .answerText(updatedAnswer.getAnswerText())  // Nội dung mới
+                .answeredBy(updatedAnswer.getAnsweredBy())
+                .answererName(answererName)
+                .createdAt(updatedAnswer.getCreatedAt())
+                .updatedAt(updatedAnswer.getUpdatedAt())  // Nếu DTO có
+                .likeCount(likeRepository.countByAnswerId(updatedAnswer.getId()))
+                .liked(hasUserLikedAnswer(updatedAnswer.getId(), request.getUserId()))
+                .build();
+    }
+
+    @Transactional
+    public void deleteQuestion(Long questionId, Long enrollmentId) {
+        Question question = questionRepository.findByIdAndEnrollmentId(questionId, enrollmentId)
+                .orElseThrow(() -> new RuntimeException("Question not found or you are not authorized to delete: " + questionId));
+        likeRepository.deleteByQuestionId(questionId);
+
+        List<Answer> answers = answerRepository.findAnswersByQuestionId(questionId);
+
+        for (Answer answer : answers) {
+            likeRepository.deleteByAnswerId(answer.getId());
+            answerRepository.delete(answer);
+            log.info("Deleted answer {} and its likes for question {}", answer.getId(), questionId);
+        }
+
+        questionRepository.delete(question);
+
+        log.info("Deleted question {} for enrollment {} (with {} answers)", questionId, enrollmentId, answers.size());
+    }
+
+    @Transactional
+    public void deleteAnswer(Long answerId, Long userId) {
+        Answer answer = answerRepository.findById(answerId)
+                .orElseThrow(() -> new RuntimeException("Answer not found: " + answerId));
+
+        if (!answer.getAnsweredBy().equals(userId)) {
+            throw new RuntimeException("You are not authorized to delete this answer");
+        }
+
+        likeRepository.deleteByAnswerId(answerId);
+
+        answerRepository.delete(answer);
+
+        Question question = answer.getQuestion();
+        List<Answer> remainingAnswers = answerRepository.findAnswersByQuestionId(question.getId());
+
+        if (remainingAnswers.isEmpty() && question.getAnswered()) {
+            question.setAnswered(false);
+            question.setUpdatedAt(LocalDateTime.now());
+            questionRepository.save(question);
+            log.info("Updated question {} to unanswered after deleting answer {}", question.getId(), answerId);
+        }
+
+        log.info("Deleted answer {} by user {}", answerId, userId);
+    }
+
 }

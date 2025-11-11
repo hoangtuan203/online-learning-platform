@@ -17,8 +17,9 @@ public class QuestionResponse {
     private String contentId;
     private String questionText;
     private Boolean answered;
+    private Long askedBy;
     private LocalDateTime createdAt;
-
+    private LocalDateTime updatedAt;
     private Integer likeCount;
     private Boolean liked;
 }

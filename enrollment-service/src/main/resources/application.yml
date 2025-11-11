@@ -40,7 +40,8 @@ app:
       url: http://localhost:8084/content-service
     user:
       url: http://localhost:8888/api/user-service
-
+    course:
+      url: http://localhost:8888/api/course-service
 feign:
   client:
     config:

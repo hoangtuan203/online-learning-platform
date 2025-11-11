@@ -14,6 +14,6 @@ public class AddUserRequest {
     String password;
     String name;
     String email;
-    String role;
+    String role = "STUDENT";
     String avatarUrl;
 }

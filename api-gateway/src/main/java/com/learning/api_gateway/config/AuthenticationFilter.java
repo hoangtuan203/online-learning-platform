@@ -38,10 +38,12 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     @NonFinal
     private final String[] publicEndpoints = {
             "/user-service/users/login",
+            "/user-service/users/auth/**",
             "/user-service/users/refresh",
             "/user-service/users/create",
             "/enrollment-service/ws/qa/**",
-            "/ws/qa/**"  // Fallback nếu route khác
+            "/ws/qa/**",
+            "/user-service/users/oauth2/callback/google",
     };
 
     @Value("${app.api-prefix:/api}")

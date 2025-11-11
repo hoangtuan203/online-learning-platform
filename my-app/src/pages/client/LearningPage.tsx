@@ -23,6 +23,7 @@ import NotesOverlay from "../../components/learning/NotesOverlay";
 import toast from "react-hot-toast"; // Added for notifications
 import ErrorBoundary from "../../components/learning/ErrorBoundary";
 import QAOverlay from "../../components/learning/QAOverlay";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 const courseService = new CourseService();
 const enrollService = new EnrollService(); // Instantiate EnrollService
 const noteService = new NoteService();
@@ -703,12 +704,7 @@ export default function LearningPage() {
   const handleMouseLeave = () => setShowControls(false);
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải nội dung học tập...</p>
-        </div>
-      </div>
+      <LoadingSpinner/>
     );
   }
   if (error || !learningData || !currentContent) {

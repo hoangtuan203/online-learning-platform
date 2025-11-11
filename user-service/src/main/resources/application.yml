@@ -28,7 +28,53 @@ spring:
     type: redis
     redis:
       time-to-live: 30000
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: nguyenhoangtuan12102003@gmail.com
+    password: hwptksdvhkrlaybw
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+        mime:
+          encoding: UTF-8
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 442264654014-e1ggfeelf2pe9vqr7k042fs8g42p9gon.apps.googleusercontent.com
+            client-secret: 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
+            redirect-uri: "{baseUrl}/users/oauth2/callback/{registrationId}"
+            scope:
+              - openid
+              - email
+              - profile
+
+          facebook:
+            client-id: 1695819107932744
+            client-secret: a2d70820effc132f221cb220d6fa16db
+            redirect-uri: "{baseUrl}/api/auth/oauth2/callback/facebook"
+            scope:
+              - email
+              - public_profile
+
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+
+          facebook:
+            authorization-uri: https://www.facebook.com/v12.0/dialog/oauth
+            token-uri: https://graph.facebook.com/v12.0/oauth/access_token
+            user-info-uri: https://graph.facebook.com/me?fields=id,name,email,picture
+            user-name-attribute: id
 server:
   port: 8081
   servlet:

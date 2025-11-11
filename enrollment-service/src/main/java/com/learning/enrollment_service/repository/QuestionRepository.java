@@ -16,4 +16,5 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByCourseIdAndContentIdOrderByCreatedAtDesc(@Param("courseId") Long courseId, @Param("contentId") String contentId);
     @Query("SELECT q FROM Question q LEFT JOIN FETCH q.likes WHERE q.id = :id")
     Optional<Question> findByIdWithLikes(@Param("id") Long id);
+    Optional<Question> findByIdAndEnrollmentId(Long id, Long enrollmentId);
 }

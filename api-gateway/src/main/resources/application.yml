@@ -69,7 +69,25 @@ spring:
               filters:
                 - StripPrefix=1
 
+            - id: notification-service
+              uri: http://localhost:8085
+              predicates:
+                - Path=${app.api-prefix}/notification-service/notifications/**
+              filters:
+                - StripPrefix=1
+                - DedupeResponseHeader=Access-Control-Allow-Origin RETAIN_FIRST
+                - DedupeResponseHeader=Access-Control-Allow-Credentials RETAIN_FIRST
+                - DedupeResponseHeader=Access-Control-Allow-Headers RETAIN_FIRST
+                - DedupeResponseHeader=Access-Control-Allow-Methods RETAIN_FIRST
+                - DedupeResponseHeader=Vary RETAIN_FIRST
 
+          globalcors:
+            corsConfigurations:
+              '[/**]':
+                allowedOrigins: "http://localhost:5173"
+                allowedHeaders: "*"
+                allowedMethods: "*"
+                allowCredentials: true
 eureka:
   client:
     service-url:

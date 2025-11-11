@@ -30,3 +30,30 @@ export interface UserPage {
   totalPages: number;
   currentPage?: number;
 }
+
+export interface UpdateUserRequest {
+    name?: string;
+    username?: string;
+    email?: string;
+    password?: string;
+    role?: 'STUDENT' | 'INSTRUCTOR' | 'ADMIN';
+}
+
+
+export interface CreateUserRequest {
+    name: string;
+    username: string; 
+    email: string;
+    password: string;
+}
+export interface VerifyOtpRequest {
+    email: string;
+    otp: string;
+}
+
+export interface OAuthResponse {
+  token: string;
+  userId: string;
+  userName: string;
+  role: string;
+}

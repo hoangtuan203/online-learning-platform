@@ -50,6 +50,36 @@ interface EnrollmentProgressDetailsResponse {
     currentContentId: string | null;
     contents: ContentProgressDTO[];
 }
+
+
+interface Enrollment {
+    id: number;
+    userId: number;
+    courseId: number;
+    courseTitle: string;
+    thumbnailUrl?: string;
+    instructorName?: string;
+    enrollmentDate: string;
+    startDate?: string;
+    completedDate?: string;
+    status: string;
+    progressPercentage: number;
+    totalContentItems: number;
+    currentContentId?: string;
+
+    progressSummaries?: Array<{
+        id: number;
+        contentItemId: string;
+        contentType: string;
+        completed: boolean;
+        score?: number;
+        durationSpent: number;
+    }>;
+}
+
+interface GetEnrolledCoursesResponse {
+    enrollments: Enrollment[];
+}
 export class EnrollService {
 
     async loadProgressDetails(enrollmentId: number): Promise<EnrollmentProgressDetailsResponse> {
@@ -102,7 +132,80 @@ export class EnrollService {
             throw error;
         }
     }
+    async getEnrolledCourses(userId: number): Promise<GetEnrolledCoursesResponse> {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+            throw new Error('Bạn cần đăng nhập để tải danh sách khóa học đã tham gia');
+        }
 
+        try {
+            const response = await httpRequest.get(
+                `/enrollment-service/enrolls/user/${userId}/courses`,
+                authHeaders
+            );
+
+            console.log("Enrolled courses response:", response.data);  // Giữ để debug
+
+            if (!response.data) {
+                throw new Error('Không nhận được dữ liệu danh sách khóa học từ server');
+            }
+
+            const result = response.data.result || response.data;  // Handle wrapper nếu có
+
+            let enrollmentsData: any[] = [];
+            if (Array.isArray(result)) {
+                enrollmentsData = result;  // Array trực tiếp từ backend
+            } else if (result && Array.isArray(result.enrollments)) {
+                enrollmentsData = result.enrollments;  // Wrapper object
+            } else {
+                throw new Error('Response không chứa danh sách enrollments hợp lệ');
+            }
+
+            if (enrollmentsData.length === 0) {
+                return { enrollments: [] };
+            }
+
+            const enrollments: Enrollment[] = enrollmentsData.map((enroll: any) => ({
+                id: enroll.id || 0,
+                userId: enroll.userId || 0,
+                courseId: enroll.courseId || 0,
+                courseTitle: enroll.courseTitle || `Khóa học ${enroll.courseId}`,
+                thumbnailUrl: enroll.thumbnailUrl || undefined,
+                instructorName: enroll.instructorName || undefined,
+                enrollmentDate: enroll.enrollmentDate || '',
+                startDate: enroll.startDate || undefined,
+                completedDate: enroll.completedDate || undefined,
+                status: enroll.status || '',
+                progressPercentage: enroll.progressPercentage || 0,
+                totalContentItems: enroll.totalContentItems || 0,
+                currentContentId: enroll.currentContentId || undefined,
+                progressSummaries: enroll.progressSummaries || [],
+                instructor: 'Giảng viên chưa xác định',  // Fallback trực tiếp
+            }));
+
+            console.log("Mapped enrollments:", enrollments);  // Debug: Xem sau mapping
+
+            return { enrollments };
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    const errorMsg = error.response.data || 'Lỗi tải danh sách khóa học';
+                    throw new Error(typeof errorMsg === 'string' ? errorMsg : 'Lỗi tải danh sách khóa học');
+                }
+                if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để tải danh sách khóa học');
+                }
+                if (error.response?.status === 403) {
+                    throw new Error('Bạn không có quyền tải danh sách khóa học này');
+                }
+                if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy enrollments cho user');
+                }
+                throw new Error(`Lỗi kết nối server: ${error.response?.data?.message || error.message}`);
+            }
+            throw error;
+        }
+    }
 
 
 
@@ -733,7 +836,7 @@ export class EnrollService {
         }
     }
 
-   
+
 
 
     public async enroll(request: EnrollmentRequest): Promise<EnrollResponse> {

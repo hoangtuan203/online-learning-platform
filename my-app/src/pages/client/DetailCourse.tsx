@@ -1,4 +1,4 @@
-// DetailCourse.tsx - Updated to fetch dynamic data using CourseService
+// DetailCourse.tsx - Updated with LoadingSpinner
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
@@ -13,6 +13,7 @@ import { CourseService } from "../../service/CourseService";
 import { EnrollService } from "../../service/EnrollService";
 import type { ContentResponse } from "../../service/CourseService";
 import toast, { Toaster } from "react-hot-toast";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
 
 const enrollService = new EnrollService();
 
@@ -69,7 +70,7 @@ export default function CourseDetail() {
   const [enrolling, setEnrolling] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openModules, setOpenModules] = useState<number[]>([]);
+  const [openModules, setOpenModules] = useState<number[]>([0]); // Mở module đầu tiên mặc định
   const [relatedCourses, setRelatedCourses] = useState<any[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   useEffect(() => {
@@ -241,7 +242,7 @@ export default function CourseDetail() {
             name: content.title,
             type: content.type as "VIDEO" | "DOCUMENT" | "QUIZ",
             duration,
-            index: index + 1, // Numbering starts from 1
+            index: index + 1, 
           };
         }),
       },
@@ -289,16 +290,9 @@ export default function CourseDetail() {
     }
   };
 
-  // Loading State
+  // Loading State - Sử dụng LoadingSpinner
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải chi tiết khóa học...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   // Error State

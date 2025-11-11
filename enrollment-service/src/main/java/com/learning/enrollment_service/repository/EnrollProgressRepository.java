@@ -3,6 +3,8 @@ package com.learning.enrollment_service.repository;
 import com.learning.enrollment_service.entity.Enrollment;
 import com.learning.enrollment_service.entity.EnrollmentProgress;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -12,4 +14,7 @@ import java.util.Optional;
 public interface EnrollProgressRepository extends JpaRepository<EnrollmentProgress, Long> {
     List<EnrollmentProgress> findByEnrollment(Enrollment enrollment);
     Optional<EnrollmentProgress> findByEnrollmentIdAndContentItemId(Long enrollmentId, String contentItemId);
+
+    @Query("SELECT e FROM Enrollment e LEFT JOIN FETCH e.enrollmentProgresses WHERE e.userId = :userId")
+    List<Enrollment> findCourseRegisterByUserIdWithProgress(@Param("userId") Long userId);
 }

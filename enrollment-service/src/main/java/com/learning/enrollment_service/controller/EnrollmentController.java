@@ -6,6 +6,7 @@ import com.learning.enrollment_service.service.EnrollmentService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -347,4 +348,63 @@ public class EnrollmentController {
         }
     }
 
+    @PutMapping("/{enrollmentId}/questions/{questionId}")
+    public ResponseEntity<QuestionResponse> updateQuestion(
+            @PathVariable Long enrollmentId,
+            @PathVariable Long questionId,
+            @RequestBody @Validated QuestionUpdateRequest request) {
+        try {
+            QuestionResponse updated = enrollmentService.updateQuestion(questionId, enrollmentId, request);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            log.error("Error updating question {} for enrollment {}: {}", questionId, enrollmentId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PutMapping("/questions/{questionId}/answers/{answerId}")
+    public ResponseEntity<AnswerResponse> updateAnswer(
+            @PathVariable Long questionId,  // Context
+            @PathVariable Long answerId,
+            @RequestBody @Validated AnswerUpdateRequest request) {
+        try {
+            AnswerResponse updated = enrollmentService.updateAnswer(answerId, request);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            log.error("Error updating answer {} for question {}: {}", answerId, questionId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/{enrollmentId}/questions/{questionId}")
+    public ResponseEntity<Map<String, String>> deleteQuestion(
+            @PathVariable Long enrollmentId,
+            @PathVariable Long questionId) {
+        try {
+            enrollmentService.deleteQuestion(questionId, enrollmentId);
+            return ResponseEntity.ok(Map.of("message", "Question deleted successfully"));
+        } catch (RuntimeException e) {
+            log.error("Error deleting question {} for enrollment {}: {}", questionId, enrollmentId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/questions/{questionId}/answers/{answerId}")
+    public ResponseEntity<Map<String, String>> deleteAnswer(
+            @PathVariable Long questionId,  // Context
+            @PathVariable Long answerId,
+            @RequestParam Long userId) {
+        try {
+            enrollmentService.deleteAnswer(answerId, userId);
+            return ResponseEntity.ok(Map.of("message", "Answer deleted successfully"));
+        } catch (RuntimeException e) {
+            log.error("Error deleting answer {} for question {}: {}", answerId, questionId, e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
+    @GetMapping("/user/{userId}/courses")
+    public ResponseEntity<List<EnrollmentDTO>> getEnrolledCoursesByUserId(@PathVariable Long userId) {
+        List<EnrollmentDTO> enrollments = enrollmentService.getEnrollmentsByUserId(userId);
+        return ResponseEntity.ok(enrollments);
+    }
 }

@@ -38,6 +38,24 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.STUDENT;
 
+    @JsonIgnore
+    @Column(name = "otp", length = 6, nullable = true)
+    private String otp;
+
+    @Column(name = "otp_expiry", nullable = true)
+    private LocalDateTime otpExpiry;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = false;
+
+
+    @Column(name = "provider", length = 20, nullable = true)  // google, facebook
+    private String provider;
+
+    @Column(name = "provider_id", length = 100, nullable = true)  // ID từ provider
+    private String providerId;
+
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -46,5 +64,31 @@ public class User {
 
     public enum Role {
         STUDENT, INSTRUCTOR, ADMIN
+    }
+
+    public static String generateOTP() {
+        return String.valueOf((int) (Math.random() * 900000) + 100000);
+    }
+
+    public boolean isOtpValid(String inputOtp) {
+        return isActive || (otp != null && otp.equals(inputOtp) && otpExpiry != null &&
+                LocalDateTime.now().isBefore(otpExpiry));
+    }
+
+    public void clearOtp() {
+        this.otp = null;
+        this.otpExpiry = null;
+        this.isActive = true;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public User(String name, String email, String provider, String providerId) {
+        this.name = name;
+        this.email = email;
+        this.provider = provider;
+        this.providerId = providerId;
+        this.username = email.split("@")[0];  // Derive username từ email
+        this.isActive = true;  // Social user active ngay
+        this.password = null;  // Không cần password
     }
 }
