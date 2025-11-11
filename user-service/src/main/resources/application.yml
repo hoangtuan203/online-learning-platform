@@ -32,7 +32,7 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: nguyenhoangtuan12102003@gmail.com
-    password: hwptksdvhkrlaybw
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -88,9 +88,9 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
 
 cloudinary:
-  cloud_name: dm1alq68q
-  api_key: 392714169722963
-  api_secret: 78opY4-nD40-VZbYTqDsU_tDPMc
+  cloud_name: ${CLOUD_NAME}
+  api_key: ${API_KEY}
+  api_secret: ${API_SECRET}
 
 logging:
   level:
