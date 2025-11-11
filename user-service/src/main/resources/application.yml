@@ -47,8 +47,8 @@ spring:
       client:
         registration:
           google:
-            client-id: 442264654014-e1ggfeelf2pe9vqr7k042fs8g42p9gon.apps.googleusercontent.com
-            client-secret: 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
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             redirect-uri: "{baseUrl}/users/oauth2/callback/{registrationId}"
             scope:
               - openid
@@ -56,8 +56,8 @@ spring:
               - profile
 
           facebook:
-            client-id: 1695819107932744
-            client-secret: a2d70820effc132f221cb220d6fa16db
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
             redirect-uri: "{baseUrl}/api/auth/oauth2/callback/facebook"
             scope:
               - email
